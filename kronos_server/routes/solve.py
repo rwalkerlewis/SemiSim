@@ -36,11 +36,21 @@ async def submit_solve(request: Request) -> JSONResponse:
         )
 
     # Validate against the input schema before enqueuing.
-    from semi.schema import SCHEMA, SchemaError, validate
+    from semi.schema import SchemaError, get_schema, validate
+
+    # Pick the schema matching the submitted major version so that v2 inputs
+    # (which may use caughey_thomas mobility, ac_sweep, etc.) are validated
+    # against input.v2.json rather than the legacy v1 schema.
+    raw_version = cfg.get("schema_version", "1.0.0")
+    try:
+        schema_major = int(str(raw_version).split(".")[0])
+    except (ValueError, AttributeError):
+        schema_major = 1
+    versioned_schema = get_schema(schema_major)
 
     try:
         import jsonschema
-        validator = jsonschema.Draft7Validator(SCHEMA)
+        validator = jsonschema.Draft7Validator(versioned_schema)
         errors = sorted(validator.iter_errors(cfg), key=lambda e: list(e.path))
         if errors:
             raise HTTPException(

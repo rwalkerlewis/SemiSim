@@ -151,3 +151,133 @@ def get_logs(run_id: str, request: Request) -> FileResponse:
     if not path.exists():
         raise HTTPException(status_code=404, detail="Engine log not found.")
     return FileResponse(str(path), media_type="text/plain")
+
+
+@router.get("/runs/{run_id}/fields/{name}/profile")
+def get_field_profile(run_id: str, name: str, request: Request):
+    """Return a 2-column CSV (x_m,value) for a 1-D scalar field stored in
+    a VTX/ADIOS2 .bp directory.  Raises 404 if the field does not exist and
+    422 if the mesh is not 1-D (profile extraction only makes sense for 1-D).
+    """
+    run_dir = _resolve_run_dir(request, run_id)
+    bp_dir = run_dir / "fields" / f"{name}.bp"
+    if not bp_dir.exists():
+        raise HTTPException(status_code=404, detail=f"Field {name!r} not found.")
+
+    try:
+        import adios2  # type: ignore
+        import numpy as np
+        from fastapi.responses import Response
+
+        with adios2.FileReader(str(bp_dir)) as f:
+            vars_ = f.available_variables()
+            if "geometry" not in vars_ or name not in vars_:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Field {name!r} or geometry not found in BP file.",
+                )
+            geom = f.read("geometry")   # (N, 3) -- VTX always writes xyz
+            vals = f.read(name).flatten()
+
+        if geom.ndim != 2 or geom.shape[1] != 3:
+            raise HTTPException(
+                status_code=422,
+                detail="Profile export only supported for 1-D meshes.",
+            )
+
+        # Decide which axis has non-trivial spread.
+        spans = geom.max(axis=0) - geom.min(axis=0)
+        axis = int(np.argmax(spans))
+        x = geom[:, axis]
+        order = np.argsort(x)
+        x = x[order]
+        vals = vals[order]
+
+        lines = [f"x_m,{name}"]
+        lines += [f"{xi:.8e},{vi:.8e}" for xi, vi in zip(x, vals)]
+        return Response("\n".join(lines), media_type="text/csv")
+
+    except HTTPException:
+        raise
+    except ImportError:
+        raise HTTPException(
+            status_code=503,
+            detail="adios2 is not available on this server.",
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not read field: {exc}",
+        ) from exc
+
+
+@router.get("/runs/{run_id}/mesh")
+def get_mesh(run_id: str, request: Request, max_nodes: int = 4000) -> JSONResponse:
+    """Return mesh geometry and topology as JSON for visualization.
+
+    Returns ``{dim, nodes: [[x,y,...]], cells: [[i,j,k],...], downsampled}``.
+    For large meshes, nodes and cells are downsampled to ``max_nodes`` nodes.
+    """
+    run_dir = _resolve_run_dir(request, run_id)
+    mesh_dir = run_dir / "mesh"
+    xdmf_path = mesh_dir / "mesh.xdmf"
+    if not xdmf_path.exists():
+        raise HTTPException(status_code=404, detail="Mesh file not found for this run.")
+
+    try:
+        import mpi4py.MPI as MPI  # type: ignore
+        import numpy as np
+        from dolfinx.io import XDMFFile  # type: ignore
+
+        with XDMFFile(MPI.COMM_WORLD, str(xdmf_path), "r") as fh:
+            msh = fh.read_mesh()
+
+        gdim = msh.geometry.dim
+        tdim = msh.topology.dim
+        coords = msh.geometry.x  # (N, 3)
+
+        msh.topology.create_connectivity(tdim, 0)
+        conn = msh.topology.connectivity(tdim, 0)
+        num_cells = msh.topology.index_map(tdim).size_local
+
+        cells_list = [conn.links(i).tolist() for i in range(num_cells)]
+
+        # Downsample large meshes for payload size
+        downsampled = False
+        if coords.shape[0] > max_nodes:
+            downsampled = True
+            keep = np.random.default_rng(0).choice(
+                coords.shape[0], size=max_nodes, replace=False
+            )
+            keep_set = set(keep.tolist())
+            coords = coords[keep]
+            # Remap cell vertices; drop cells with missing vertices
+            remap = {old: new for new, old in enumerate(sorted(keep_set))}
+            new_cells = []
+            for c in cells_list:
+                if all(v in remap for v in c):
+                    new_cells.append([remap[v] for v in c])
+            cells_list = new_cells
+
+        # Only return coordinates in the active spatial dims (drop zero-span axes)
+        spans = coords.max(axis=0) - coords.min(axis=0)
+        active_axes = [i for i in range(3) if spans[i] > 1e-30]
+        if not active_axes:
+            active_axes = [0]
+        nodes = coords[:, active_axes].tolist()
+
+        return JSONResponse(content={
+            "dim": tdim,
+            "gdim": gdim,
+            "nodes": nodes,
+            "cells": cells_list,
+            "downsampled": downsampled,
+        })
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not read mesh: {exc}",
+        ) from exc

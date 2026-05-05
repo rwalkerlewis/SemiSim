@@ -83,8 +83,8 @@ def _solve_job(run_id: str, run_dir_str: str, input_path_str: str) -> dict[str, 
     progress_cb({"type": "run_started", "run_id": run_id})
 
     try:
-        from semi.io import write_artifact
-        from semi.runners import run_bias_sweep, run_equilibrium, run_mos_cv
+        from semi.io import write_artifact, write_ac_sweep_artifact, write_transient_artifact
+        from semi.runners import run_ac_sweep, run_bias_sweep, run_equilibrium, run_mos_cap_ac, run_mos_cv, run_transient
         from semi.schema import load as schema_load
 
         cfg = schema_load(str(input_path))
@@ -96,6 +96,40 @@ def _solve_job(run_id: str, run_dir_str: str, input_path_str: str) -> dict[str, 
             result = run_bias_sweep(cfg, progress_callback=progress_cb)
         elif stype == "mos_cv":
             result = run_mos_cv(cfg, progress_callback=progress_cb)
+        elif stype == "mos_cap_ac":
+            result = run_mos_cap_ac(cfg, progress_callback=progress_cb)
+        elif stype == "ac_sweep":
+            result = run_ac_sweep(cfg, progress_callback=progress_cb)
+            final_dir = write_ac_sweep_artifact(
+                result,
+                out_dir=run_dir.parent,
+                run_id=run_id,
+                input_json_path=input_path,
+            )
+            if str(final_dir) != str(run_dir):  # pragma: no cover
+                raise RuntimeError(
+                    f"write_ac_sweep_artifact wrote to {final_dir}, expected {run_dir}",
+                )
+            wall = time.monotonic() - t_start
+            write_status(run_dir, "completed", run_id=run_id, wall_time_s=wall)
+            progress_cb({"type": "run_done", "status": "completed", "wall_time_s": wall})
+            return {"status": "completed", "wall_time_s": wall}
+        elif stype == "transient":
+            result = run_transient(cfg, progress_callback=progress_cb)
+            final_dir = write_transient_artifact(
+                result,
+                out_dir=run_dir.parent,
+                run_id=run_id,
+                input_json_path=input_path,
+            )
+            if str(final_dir) != str(run_dir):  # pragma: no cover
+                raise RuntimeError(
+                    f"write_transient_artifact wrote to {final_dir}, expected {run_dir}",
+                )
+            wall = time.monotonic() - t_start
+            write_status(run_dir, "completed", run_id=run_id, wall_time_s=wall)
+            progress_cb({"type": "run_done", "status": "completed", "wall_time_s": wall})
+            return {"status": "completed", "wall_time_s": wall}
         else:
             raise ValueError(f"Unknown solver.type {stype!r}")
 

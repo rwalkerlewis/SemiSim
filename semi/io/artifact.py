@@ -416,3 +416,186 @@ def _git_commit() -> str:
         ).strip()
     except Exception:  # pragma: no cover
         return "unknown"
+
+
+def write_transient_artifact(
+    result,
+    out_dir: Path,
+    run_id: str | None = None,
+    input_json_path: Path | None = None,
+) -> Path:
+    """Write a minimal versioned artifact for a ``TransientResult``.
+
+    Writes:
+      input.json, manifest.json, iv/<contact>.csv (t,V,J_n,J_p,J_total)
+
+    Returns the run directory Path.
+    """
+    from .. import __version__
+
+    t_start = time.monotonic()
+
+    if input_json_path is not None:
+        input_bytes = Path(input_json_path).read_bytes()
+        cfg = json.loads(input_bytes)
+    else:
+        cfg = {}
+        input_bytes = b"{}"
+    input_sha256 = hashlib.sha256(input_bytes).hexdigest()
+
+    if run_id is None:
+        short_sha = input_sha256[:7]
+        ts = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%SZ")
+        name = cfg.get("name", "run")
+        run_id = f"{ts}_{name}_{short_sha}"
+
+    run_dir = Path(out_dir) / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    for subdir in ("iv", "logs"):
+        (run_dir / subdir).mkdir(exist_ok=True)
+
+    (run_dir / "input.json").write_bytes(input_bytes)
+
+    # Collect unique contacts from iv rows.
+    iv_rows = result.iv or []
+    contacts = list(dict.fromkeys(r.get("contact", "unknown") for r in iv_rows))
+
+    sweep_entries = []
+    for contact in contacts:
+        rows = [r for r in iv_rows if r.get("contact") == contact]
+        iv_path = run_dir / "iv" / f"{contact}.csv"
+        with open(iv_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["t", "V", "J_n", "J_p", "J_total"])
+            for row in rows:
+                writer.writerow([
+                    row.get("t", 0.0),
+                    row.get("V", 0.0),
+                    row.get("J_n", float("nan")),
+                    row.get("J_p", float("nan")),
+                    row.get("J", row.get("J_total", float("nan"))),
+                ])
+        sweep_entries.append({
+            "kind": "transient",
+            "contact": contact,
+            "path": f"iv/{contact}.csv",
+            "n_steps": len(rows),
+            "bipolar": False,
+        })
+
+    meta = result.meta or {}
+    manifest = {
+        "schema_version": _SCHEMA_VERSION,
+        "engine": {
+            "name": "kronos-semi",
+            "version": __version__,
+            "commit": _git_commit(),
+        },
+        "run_id": run_id,
+        "status": "completed",
+        "wall_time_s": time.monotonic() - t_start,
+        "input_sha256": input_sha256,
+        "solver": {
+            "type": "transient",
+            "n_steps": int(meta.get("n_steps_taken", len(result.t))),
+            "dt": float(meta.get("dt", 0.0)),
+            "order": int(meta.get("order", 1)),
+        },
+        "fields": [],
+        "warnings": [],
+    }
+    if sweep_entries:
+        manifest["sweeps"] = sweep_entries
+
+    (run_dir / "manifest.json").write_text(
+        json.dumps(manifest, sort_keys=True, indent=2) + "\n"
+    )
+    return run_dir
+
+
+def write_ac_sweep_artifact(
+    result,
+    out_dir: Path,
+    run_id: str | None = None,
+    input_json_path: Path | None = None,
+) -> Path:
+    """Write a minimal versioned artifact for an ``AcSweepResult``.
+
+    Writes:
+      input.json, manifest.json, iv/<contact>.csv (f_Hz,C,G,Re_Y,Im_Y)
+
+    Returns the run directory Path.
+    """
+    from .. import __version__
+
+    t_start = time.monotonic()
+
+    if input_json_path is not None:
+        input_bytes = Path(input_json_path).read_bytes()
+        cfg = json.loads(input_bytes)
+    else:
+        cfg = {}
+        input_bytes = b"{}"
+    input_sha256 = hashlib.sha256(input_bytes).hexdigest()
+
+    if run_id is None:
+        short_sha = input_sha256[:7]
+        ts = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%SZ")
+        name = cfg.get("name", "run")
+        run_id = f"{ts}_{name}_{short_sha}"
+
+    run_dir = Path(out_dir) / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    for subdir in ("iv", "logs"):
+        (run_dir / subdir).mkdir(exist_ok=True)
+
+    (run_dir / "input.json").write_bytes(input_bytes)
+
+    # Derive contact name from dc_bias metadata.
+    dc = result.dc_bias or {}
+    contact = dc.get("contact", "ac_port")
+    iv_path = run_dir / "iv" / f"{contact}.csv"
+    sweep_entries = []
+    if result.frequencies:
+        with open(iv_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["f_Hz", "C", "G", "Re_Y", "Im_Y"])
+            for freq, Y_val, C_val, G_val in zip(
+                result.frequencies, result.Y, result.C, result.G, strict=False
+            ):
+                writer.writerow([freq, C_val, G_val, Y_val.real, Y_val.imag])
+        sweep_entries.append({
+            "kind": "ac_sweep",
+            "contact": contact,
+            "path": f"iv/{contact}.csv",
+            "n_steps": len(result.frequencies),
+            "bipolar": False,
+        })
+
+    manifest = {
+        "schema_version": _SCHEMA_VERSION,
+        "engine": {
+            "name": "kronos-semi",
+            "version": __version__,
+            "commit": _git_commit(),
+        },
+        "run_id": run_id,
+        "status": "completed",
+        "wall_time_s": time.monotonic() - t_start,
+        "input_sha256": input_sha256,
+        "solver": {
+            "type": "ac_sweep",
+            "n_freqs": len(result.frequencies),
+            "dc_contact": contact,
+            "dc_voltage": float(dc.get("voltage", 0.0)),
+        },
+        "fields": [],
+        "warnings": [],
+    }
+    if sweep_entries:
+        manifest["sweeps"] = sweep_entries
+
+    (run_dir / "manifest.json").write_text(
+        json.dumps(manifest, sort_keys=True, indent=2) + "\n"
+    )
+    return run_dir

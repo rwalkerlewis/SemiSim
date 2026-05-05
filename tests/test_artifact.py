@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from semi.results import AcSweepResult, TransientResult
+
 try:
     import dolfinx  # noqa: F401
     HAS_DOLFINX = True
@@ -114,6 +116,110 @@ def test_manifest_schema_optional_sweeps():
         "warnings": ["test warning"],
     }
     jsonschema.Draft7Validator(schema).validate(manifest)
+
+
+def test_write_transient_artifact_writes_per_contact_csv_and_manifest(tmp_path):
+    from semi.io.artifact import write_transient_artifact
+
+    input_json = tmp_path / "input.json"
+    input_cfg = {"name": "tiny_transient"}
+    input_json.write_text(json.dumps(input_cfg))
+
+    result = TransientResult(
+        t=[0.0, 1.0e-12],
+        iv=[
+            {"t": 0.0, "contact": "anode", "V": 0.0, "J_n": 1.0, "J_p": -0.2, "J": 0.8},
+            {
+                "t": 1.0e-12,
+                "contact": "anode",
+                "V": 0.1,
+                "J_n": 1.1,
+                "J_p": -0.1,
+                "J_total": 1.0,
+            },
+            {"t": 0.0, "contact": "cathode", "V": 0.0, "J_n": -1.0, "J_p": 0.2, "J": -0.8},
+        ],
+        meta={"order": 2, "dt": 1.0e-12, "n_steps_taken": 2},
+    )
+
+    run_dir = write_transient_artifact(
+        result=result,
+        out_dir=tmp_path / "runs",
+        run_id="transient_test",
+        input_json_path=input_json,
+    )
+
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    assert manifest["solver"]["type"] == "transient"
+    assert manifest["solver"]["order"] == 2
+    assert manifest["solver"]["n_steps"] == 2
+    assert manifest["solver"]["dt"] == pytest.approx(1.0e-12)
+    assert manifest["input_sha256"] == hashlib.sha256(input_json.read_bytes()).hexdigest()
+    assert len(manifest["sweeps"]) == 2
+
+    anode_csv = run_dir / "iv" / "anode.csv"
+    cathode_csv = run_dir / "iv" / "cathode.csv"
+    assert anode_csv.exists()
+    assert cathode_csv.exists()
+
+    with open(anode_csv, newline="") as f:
+        rows = list(csv.reader(f))
+    assert rows[0] == ["t", "V", "J_n", "J_p", "J_total"]
+    # Row 2 comes from J_total fallback when J is not present.
+    assert rows[2][-1] == "1.0"
+
+
+def test_write_ac_sweep_artifact_writes_csv_and_manifest(tmp_path):
+    from semi.io.artifact import write_ac_sweep_artifact
+
+    input_json = tmp_path / "input_ac.json"
+    input_cfg = {"name": "tiny_ac"}
+    input_json.write_text(json.dumps(input_cfg))
+
+    result = AcSweepResult(
+        frequencies=[1.0, 10.0],
+        Y=[1.0 + 2.0j, 2.0 + 4.0j],
+        Z=[0.0j, 0.0j],
+        C=[3.0, 6.0],
+        G=[1.0, 2.0],
+        dc_bias={"contact": "gate", "voltage": 0.25},
+    )
+
+    run_dir = write_ac_sweep_artifact(
+        result=result,
+        out_dir=tmp_path / "runs",
+        run_id="ac_test",
+        input_json_path=input_json,
+    )
+
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    assert manifest["solver"]["type"] == "ac_sweep"
+    assert manifest["solver"]["n_freqs"] == 2
+    assert manifest["solver"]["dc_contact"] == "gate"
+    assert manifest["solver"]["dc_voltage"] == pytest.approx(0.25)
+    assert manifest["sweeps"][0]["path"] == "iv/gate.csv"
+
+    ac_csv = run_dir / "iv" / "gate.csv"
+    with open(ac_csv, newline="") as f:
+        rows = list(csv.reader(f))
+    assert rows[0] == ["f_Hz", "C", "G", "Re_Y", "Im_Y"]
+    assert rows[1] == ["1.0", "3.0", "1.0", "1.0", "2.0"]
+
+
+def test_write_ac_sweep_artifact_empty_frequency_has_no_sweeps(tmp_path):
+    from semi.io.artifact import write_ac_sweep_artifact
+
+    result = AcSweepResult(frequencies=[], Y=[], Z=[], C=[], G=[], dc_bias={})
+    run_dir = write_ac_sweep_artifact(
+        result=result,
+        out_dir=tmp_path / "runs",
+        run_id="ac_empty_test",
+        input_json_path=None,
+    )
+
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    assert manifest["solver"]["n_freqs"] == 0
+    assert "sweeps" not in manifest
 
 
 # ---- FEM-heavy tests (require dolfinx) ----
