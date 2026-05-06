@@ -889,6 +889,15 @@ The engine is ready for a UI when all of these are green:
 
 ## 9. Change log for this document
 
+### [Unreleased]
+
+- **2026-05-05**, author M16.4 starter prompt
+  ([M16_4_STARTER_PROMPT.md](M16_4_STARTER_PROMPT.md)) on branch
+  `dev/m16.4-fermi-dirac`; phases ship per
+  [PR template at the bottom of the prompt](M16_4_STARTER_PROMPT.md).
+
+### Released
+
 - **2026-05-05**, M16.3 Auger recombination shipped (v0.19.0): § 4
   M16.3 marked Done with `[0.19.0]` CHANGELOG anchor; new MMS-DD
   Variant F (gate L^2 >= 1.99 / H^1 >= 0.99 on every block); new
