@@ -23,6 +23,7 @@ code path as the seed solve.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -40,12 +41,18 @@ class ContactBC:
     Pure-data description of one contact's BC, resolved from JSON but
     independent of dolfinx. The FEM layer consumes this plus the mesh
     to build dolfinx.fem.dirichletbc objects.
+
+    `barrier_height_eV` is the metal-semiconductor barrier phi_B in
+    eV (Sze 3rd ed Table 5; Pt-on-n-Si is 0.85 eV). It is populated
+    only on Schottky contacts (M16.5); ohmic, gate, and insulating
+    contacts leave it `None`.
     """
     name: str
     kind: str
     facet_tag: int
     V_applied: float
     work_function: float | None = None
+    barrier_height_eV: float | None = None
 
 
 def resolve_contacts(
@@ -132,14 +139,56 @@ def resolve_contacts(
             V_applied = float(contact.get("voltage", 0.0))
 
         wf = contact.get("workfunction")
+        phi_b = contact.get("barrier_height_eV")
         out.append(ContactBC(
             name=name,
             kind=kind,
             facet_tag=tag,
             V_applied=V_applied,
             work_function=(float(wf) if wf is not None else None),
+            barrier_height_eV=(
+                float(phi_b) if kind == "schottky" and phi_b is not None
+                else None
+            ),
         ))
     return out
+
+
+def _schottky_psi_eq(contact: ContactBC, ref_mat, sc) -> float:
+    """
+    Equilibrium psi at a Schottky facet in scaled units (psi / V_t).
+
+    The metal Fermi level sits ``barrier_height_eV`` below the
+    semiconductor conduction band on the metal side. In the kronos-semi
+    Slotboom convention psi is measured from the intrinsic Fermi level
+    (so n = n_i exp(psi/V_t) under Boltzmann), which gives
+    ``q psi = E_F - E_i``. At the Schottky interface E_F = E_F_metal and
+    E_C = phi_B, while E_C - E_i = V_t ln(N_C / n_i) (Boltzmann limit;
+    Sze 3rd ed eq 1.20), so
+
+        psi_Schottky_eq = V_t * ln(N_C / n_i) - phi_B
+        psi_eq_hat      = psi_Schottky_eq / V_t
+                        = ln(N_C / n_i) - phi_B / V_t.
+
+    The expression assumes the Boltzmann limit; under Fermi-Dirac
+    statistics the ``V_t ln(N_C / n_i)`` term is replaced by the FD
+    inversion of the bulk equilibrium ``n_eq`` value. M16.5 ships under
+    Boltzmann statistics by default, so the FD generalization is a
+    follow-up. See Sze 3rd ed Section 3.4 and ADR 0015 for the
+    derivation and V&V scope.
+    """
+    if contact.barrier_height_eV is None:
+        raise ValueError(
+            f"Schottky contact {contact.name!r} has no barrier_height_eV"
+        )
+    N_C = ref_mat.Nc
+    if N_C is None or N_C <= 0.0:
+        raise ValueError(
+            f"Schottky psi BC requires reference material {ref_mat.name!r}"
+            f" to expose a positive conduction-band density of states"
+            f" N_C; got {N_C}"
+        )
+    return float(math.log(N_C / ref_mat.n_i) - contact.barrier_height_eV / sc.V0)
 
 
 def build_psi_dirichlet_bcs(
@@ -163,8 +212,11 @@ def build_psi_dirichlet_bcs(
     oxide side of the Si/SiO2 interface and contribute no Slotboom BCs;
     `build_dd_dirichlet_bcs` therefore ignores them on purpose.
 
-    Schottky contacts are accepted by the schema but have no physics
-    wired yet; they raise NotImplementedError here to fail loudly.
+    Schottky contacts: psi_hat = ln(N_C / n_i) - phi_B / V_t + V_applied / V_t.
+    The metal Fermi level is the Dirichlet anchor for psi (Sze 3rd ed
+    Section 3.4); the continuity rows (phi_n / phi_p) at the Schottky
+    facet are handled by the thermionic-emission Robin form added in
+    Phase C, not by a Dirichlet here. ADR 0015 documents the V&V scope.
     """
     from dolfinx import fem
     from petsc4py import PETSc
@@ -188,9 +240,8 @@ def build_psi_dirichlet_bcs(
             psi_bc = (c.V_applied - phi_ms) / sc.V0
             bcs.append(fem.dirichletbc(PETSc.ScalarType(psi_bc), dofs, V_psi))
         elif c.kind == "schottky":
-            raise NotImplementedError(
-                f"Schottky contact {c.name!r}: physics not yet wired."
-            )
+            psi_bc = _schottky_psi_eq(c, ref_mat, sc) + c.V_applied / sc.V0
+            bcs.append(fem.dirichletbc(PETSc.ScalarType(psi_bc), dofs, V_psi))
         else:
             raise ValueError(f"Unknown contact kind {c.kind!r} for {c.name!r}")
     return bcs
@@ -217,6 +268,14 @@ def build_dd_dirichlet_bcs(
     which is the Shockley boundary: quasi-Fermi potentials pinned to
     the applied bias, electrostatic potential offset by the local
     majority-side value at equilibrium.
+
+    Schottky contacts (M16.5) contribute a single psi Dirichlet
+    anchored at the metal Fermi level
+    (`psi_hat = _schottky_psi_eq(c, ref_mat, sc) + V_applied / V_t`).
+    The continuity rows (phi_n / phi_p) are not Dirichlet-pinned at the
+    Schottky facet; the thermionic-emission Robin form on those rows is
+    added in `semi.physics.drift_diffusion.build_dd_block_residual`.
+    See ADR 0015.
     """
     from dolfinx import fem
     from petsc4py import PETSc
@@ -224,7 +283,7 @@ def build_dd_dirichlet_bcs(
     fdim = msh.topology.dim - 1
     bcs = []
     for c in contacts:
-        if c.kind not in ("ohmic", "gate"):
+        if c.kind not in ("ohmic", "gate", "schottky"):
             continue
         facets = facet_tags.find(c.facet_tag)
         if len(facets) == 0:
@@ -244,6 +303,12 @@ def build_dd_dirichlet_bcs(
             # runners which solve psi alone).
             phi_ms = float(c.work_function) if c.work_function is not None else 0.0
             psi_bc = (c.V_applied - phi_ms) / sc.V0
+            bcs.append(fem.dirichletbc(
+                PETSc.ScalarType(psi_bc), dofs_psi, spaces.V_psi))
+            continue
+
+        if c.kind == "schottky":
+            psi_bc = _schottky_psi_eq(c, ref_mat, sc) + c.V_applied / sc.V0
             bcs.append(fem.dirichletbc(
                 PETSc.ScalarType(psi_bc), dofs_psi, spaces.V_psi))
             continue

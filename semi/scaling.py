@@ -24,9 +24,10 @@ with lambda^2 = eps_0 V0 / (q C0 L0^2).
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
-from .constants import EPS0, Q, thermal_voltage
+from .constants import EPS0, KB, M0, Q, thermal_voltage
 
 
 @dataclass
@@ -46,6 +47,14 @@ class Scaling:
     # raise a clear error when N_C or N_V is None.
     N_C: float | None = None
     N_V: float | None = None
+    # M16.5: thermionic-emission effective masses (relative to the
+    # electron rest mass m_0). None on materials that have not been
+    # characterized for Schottky contacts; the Schottky surface form
+    # raises a clear error if the reference material exposes None
+    # while a Schottky contact is requested. The Boltzmann ohmic /
+    # gate paths never read these.
+    m_n_star: float | None = None
+    m_p_star: float | None = None
 
     @property
     def V0(self) -> float:
@@ -101,6 +110,39 @@ class Scaling:
         return _eta_offset_for_material(self.N_C, self.n_i)
 
     @property
+    def v_n_thermal(self) -> float:
+        """
+        Electron thermionic emission velocity in m/s,
+        ``sqrt(kT / (2 pi m_n*))``. Si at 300 K with m_n* = 0.26 m_0
+        evaluates to ~2.05e5 m/s (~2.05e7 cm/s). Used by the Schottky
+        Robin surface form (M16.5; ADR 0015).
+        """
+        if self.m_n_star is None:
+            raise ValueError(
+                "Scaling.m_n_star is not populated; the Schottky "
+                "thermionic-emission Robin BC requires the reference "
+                "material to expose a thermionic-emission electron "
+                "effective mass (Material.m_n_star). Ohmic / gate "
+                "paths do not read this property."
+            )
+        return float(math.sqrt(KB * self.T / (2.0 * math.pi * self.m_n_star * M0)))
+
+    @property
+    def v_p_thermal(self) -> float:
+        """Hole counterpart of :attr:`v_n_thermal`. Si at 300 K with
+        m_p* = 0.39 m_0 evaluates to ~1.68e5 m/s.
+        """
+        if self.m_p_star is None:
+            raise ValueError(
+                "Scaling.m_p_star is not populated; the Schottky "
+                "thermionic-emission Robin BC requires the reference "
+                "material to expose a thermionic-emission hole "
+                "effective mass (Material.m_p_star). Ohmic / gate "
+                "paths do not read this property."
+            )
+        return float(math.sqrt(KB * self.T / (2.0 * math.pi * self.m_p_star * M0)))
+
+    @property
     def eta_offset_p(self) -> float:
         """Hole counterpart of :attr:`eta_offset_n`, ln(n_i / N_V)."""
         if self.N_V is None:
@@ -153,6 +195,8 @@ def make_scaling_from_config(cfg: dict, reference_material) -> Scaling:
         mu0=reference_material.mu_n,
         n_i=reference_material.n_i,
         N_C=N_C, N_V=N_V,
+        m_n_star=reference_material.m_n_star,
+        m_p_star=reference_material.m_p_star,
     )
 
 

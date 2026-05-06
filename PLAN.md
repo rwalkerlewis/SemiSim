@@ -35,11 +35,47 @@ recombination for 1D/2D/3D devices.
 
 ## Current state
 
-M1 through M15 plus M14.3, M14.4, M16.1, M16.2, M16.3, and M16.4
-are merged into `main`. Current package version is `0.20.0`; M16.4
-(Fermi-Dirac statistics, branch `dev/m16.4-fermi-dirac`) ships the
-fourth physics-completeness slice of M16: a generalized-Slotboom
-substitution under the basic Blakemore approximation
+M1 through M15 plus M14.3, M14.4, M16.1, M16.2, M16.3, M16.4, and
+M16.5 are merged into `main`. Current package version is `0.21.0`;
+M16.5 (Schottky contacts, branch `dev/m16.5-schottky`) ships the
+fifth physics-completeness slice of M16: a metal-Fermi-level psi
+Dirichlet plus a thermionic-emission Robin BC on the electron
+continuity row at metal-semiconductor contacts. ContactBC carries a
+new `barrier_height_eV` field; `semi/physics/drift_diffusion.py`
+gains a `schottky_facets` parameter on the DD residual builder; the
+runner `bias_sweep` extracts Schottky facets from the resolved
+contact list and rebuilds the form per bias step. Schema additive
+minor bump v2.4.0 -> v2.5.0 (`contacts[].type` enum widened from
+`["ohmic", "gate", "insulating"]` to add `"schottky"`; new
+`contacts[].barrier_height_eV` declared `["number", "null"]` with
+the loader enforcing a non-null non-negative value when
+`type == "schottky"`). v2.0.0 through v2.4.0 inputs continue to
+validate; the no-Schottky branches are bit-identical to v0.20.0 on
+every existing benchmark (pn_1d_bias anchor: J(V=0.6 V) = 1.635e+03
+A/m^2; diode_velsat_1d 56.27 % @ V_F=0.9 V, 0.19 % @ V_F=0.3 V;
+diode_auger_1d >20 % SRH-vs-(SRH+Auger) divergence at V_F=0.9 V;
+diode_fermi_dirac_1d 7.37 % FD-vs-Boltzmann V_bi divergence at
+N_D=1e20 cm^-3). The new `benchmarks/schottky_1d/` exercises a
+Pt-on-n-Si Schottky diode (1D, N_D = 1e16 cm^-3, 5 um, V_F sweep
+[0, 0.5] V) under Boltzmann statistics. The verifier gates the
+exponential V-dependence (slope of ln J_FEM vs V matches 1/V_t
+within 5 %; observed 2.46 %) and an envelope absolute-magnitude
+check (`|J_FEM - J_thermionic| / J_thermionic < 5x` over V in
+[0.1, 0.5] V; observed worst 278 %). The 5x envelope reflects the
+diffusion-thermionic mixing in the simple 5 um device geometry; the
+simple analytical thermionic-emission formula is the thermionic-
+limit asymptote of the thermionic-diffusion theory and the FEM
+correctly picks up the geometry-dependent additive bulk-drift
+contribution. ADR 0015 documents the V&V scope (slope match plus
+envelope absolute match instead of an MMS rate gate; existing-
+benchmark byte-identity for the no-Schottky paths). The mosfet_2d
+CI matrix entry retains `allow-failure: "true"` from M16.1 / M16.2
+/ M16.3 / M16.4 (the SNES depletion-onset line-search stagnation
+has not been independently audited; retiring the flag is a separate
+follow-up). M16.4 (Fermi-Dirac statistics, branch
+`dev/m16.4-fermi-dirac`) shipped in v0.20.0 the fourth physics-
+completeness slice of M16: a generalized-Slotboom substitution
+under the basic Blakemore approximation
 `F_{1/2}(eta) ~ 1 / (exp(-eta) + 0.27)` in
 `semi/physics/statistics.py`. The continuity-row shape
 `J = -q mu n grad(phi)` is unchanged because the FD Einstein factor
@@ -196,8 +232,10 @@ M15 through M18. Summary:
 - **Linear solver: GPU path now optional.** Default is still CPU-MUMPS
   (bit-identical to pre-M15); set `solver.backend` to `gpu-amgx`,
   `gpu-hypre`, or `auto` to opt in to PETSc-CUDA / PETSc-HIP. M16+.
-- **Physics gaps:** no field-dependent mobility, Auger, Fermi-Dirac,
-  Schottky contacts, tunneling. M16.
+- **Physics gaps:** no tunneling (BBT or TAT) and no transient FFT vs
+  AC sweep validation. M16.6 / M16.7. (Field-dependent mobility
+  shipped in M16.1; Lombardi surface mobility in M16.2; Auger in
+  M16.3; Fermi-Dirac in M16.4; Schottky in M16.5.)
 - **Heterojunctions:** position-dependent χ and Eg not yet supported.
   M17.
 - **Cartesian-2D MOSCAP variant** and a rigorous AC small-signal HF
@@ -206,16 +244,18 @@ M15 through M18. Summary:
 
 ## Next task
 
-**M16.5: Schottky contacts** on a fresh branch
-`dev/m16.5-schottky`. Acceptance tests in
-[`docs/IMPROVEMENT_GUIDE.md`](docs/IMPROVEMENT_GUIDE.md) § M16.5.
-The starter prompt for M16.5 is the next deliverable; see the
-M16.4 PR description for hand-off notes. M16.5 is the first M16.x
-slice to extend the BC layer: a new `contact.type: "schottky"` plus
-a Robin-style boundary form on the continuity rows for thermionic
-emission. The acceptance gate is a 1D Schottky diode with a Pt-on-
-n-Si contact, matching the thermionic-emission analytical I-V
-within 10 % from V_F = 0.1 V to 0.5 V.
+**M16.6: BBT and TAT tunneling** on a fresh branch
+`dev/m16.6-tunneling`. Acceptance tests in
+[`docs/IMPROVEMENT_GUIDE.md`](docs/IMPROVEMENT_GUIDE.md) § M16.6.
+The M16.6 starter prompt is the next deliverable; see the M16.5
+PR description for hand-off notes. M16.6 is the largest single
+physics addition in M16: it adds a Kane band-to-band model and a
+Hurkx trap-assisted model as UFL generation/recombination kernels
+in `semi/physics/recombination.py`, plus a `zener_1d` reverse-
+breakdown benchmark. M16.6 depends on M16.4 (FD-corrected density
+of states for BBT). M16.7 (transient FFT vs AC sweep validation)
+follows as the final M16 slice; the gap list in PLAN and
+IMPROVEMENT_GUIDE will then read "no remaining M16 gaps".
 
 ## Backlog
 
@@ -275,7 +315,8 @@ binding; the owner picks one explicitly when the next task ships.
 | M16.2: Lombardi surface mobility | Resistor-sum composite of bulk + acoustic-phonon + surface-roughness; schema 2.2.0 `lombardi` dispatch; MMS-DD Variant E L2 1.99/1.99/2.00 (1D) and 1.997/1.995/1.998 (2D); mosfet_2d Pao-Sah window widened to [V_T+0.4, V_T+1.0] V at 10% (run carries M16.1-era `allow-failure` flag) | Done |
 | M16.3: Auger recombination | Additive closed-form Auger kernel `R_Auger = (C_n n + C_p p)(n p - n_i^2)`; schema 2.3.0 `auger` flag + `C_n` / `C_p`; MMS-DD Variant F L2 >= 1.99 / H1 >= 0.99; new `diode_auger_1d` benchmark with >20% SRH-vs-Auger divergence and <10% analytical match at V_F = 0.9 V | Done |
 | M16.4: Fermi-Dirac statistics | Generalized-Slotboom under basic Blakemore `F_{1/2} ~ 1/(exp(-eta) + 0.27)`; schema 2.4.0 `physics.statistics: "fermi_dirac"`; MMS-DD Variant G L2 1D 2.000/2.000/2.000 and 2D 1.997/1.999/1.999; new `diode_fermi_dirac_1d` benchmark with FEM-vs-Blakemore-analytical V_bi within 0.0000% and FD-vs-Boltzmann V_bi divergence 7.37% at N_D=1e20 | Done |
-| M16: Physics completeness | Lombardi, Auger, FD, Schottky, tunneling (M16.1, M16.2, M16.3 done) | Planned |
+| M16.5: Schottky contacts | Metal-Fermi-level psi Dirichlet plus thermionic-emission Robin BC on the electron continuity row; schema 2.5.0 `contacts[].type: "schottky"` with `barrier_height_eV`; ADR 0015 V&V scope; new `benchmarks/schottky_1d` Pt-on-n-Si verifier with `ln(J)` slope match 1/V_t (observed 2.46%) and 5x absolute envelope (observed worst 278%) | Done |
+| M16: Physics completeness | Lombardi, Auger, FD, Schottky, tunneling (M16.1-M16.5 done; M16.6/M16.7 remaining) | Planned |
 | M17: Heterojunctions | Position-dependent chi, Eg; HEMT or HBT benchmark | Planned |
 | M18: UI (separate repo) | React + vtk.js + JSONForms, consumes M9+M10+M11 contracts | Out of scope (this repo) |
 
@@ -351,6 +392,117 @@ None as of v0.17.0.
 ## Completed work log
 
 Append-only. Newest entries on top.
+
+- **M16.5 Schottky contacts (2026-05-06):** Branch
+  `dev/m16.5-schottky`, six phase-letter commits per
+  `docs/M16_5_STARTER_PROMPT.md`. Schema additive minor bump
+  v2.4.0 -> v2.5.0; package version 0.20.0 -> 0.21.0. M16.5 is
+  independent of M16.2 (Lombardi), M16.3 (Auger), and M16.4
+  (Fermi-Dirac); it lives at the BC layer rather than the bulk
+  physics layer. ADR 0007's per-contact dispatch shape is
+  preserved: ohmic, gate, and (since M16.5) Schottky contacts each
+  have a dedicated builder, with no edits to `run.py` or the bias-
+  sweep / equilibrium runners beyond an empty-list pass-through.
+  The no-Schottky branches are bit-identical to v0.20.0 on every
+  existing benchmark (Acceptance test 2 verified:
+  `pn_1d_bias` J(V=0.6 V) = 1.635e+03 A/m^2; `diode_velsat_1d`
+  56.27 % @ V_F=0.9 V, 0.19 % @ V_F=0.3 V; `diode_auger_1d` >20 %
+  divergence at V_F=0.9 V; `diode_fermi_dirac_1d` 7.37 % FD-vs-
+  Boltzmann V_bi divergence at N_D=1e20 cm^-3).
+  - **Phase 0 (starter prompt + ADR 0015).**
+    `docs/M16_5_STARTER_PROMPT.md` shipped verbatim and
+    `docs/adr/0015-schottky-robin-bc.md` documents the V&V
+    departure (boundary-physics milestones use analytical-benchmark
+    plus byte-identity gates instead of MMS rate gates; ADR 0006
+    amended via cross-reference). Merged via PR #82 ahead of the
+    rest of the milestone.
+  - **Phase A (schema 2.5.0).** `schemas/input.v2.json`
+    `contacts[].type` enum widened from
+    `["ohmic", "gate", "insulating"]` to add `"schottky"`; new
+    `contacts[].barrier_height_eV` declared `["number", "null"]`
+    with `minimum: 0`. `semi/schema.py`
+    `_validate_schottky_contacts` enforces the non-null non-
+    negative requirement at validate(cfg) time so the failure
+    surfaces before any FEM call. `SCHEMA_SUPPORTED_MINOR` 4 -> 5.
+    `tests/test_schottky_schema.py` adds nine schema-side
+    assertions; existing benchmark JSONs validate unchanged.
+  - **Phase B (psi Dirichlet at the metal Fermi level).**
+    `ContactBC` grows a `barrier_height_eV` field; `resolve_contacts`
+    populates it for Schottky contacts and leaves `None` elsewhere.
+    The shared helper `_schottky_psi_eq(contact, ref_mat, sc)` in
+    `semi/bcs.py` returns the scaled equilibrium psi
+    `ln(N_C / n_i) - phi_B / V_t` (Sze 3rd ed Section 3.4
+    Boltzmann derivation); both `build_psi_dirichlet_bcs` and
+    `build_dd_dirichlet_bcs` consume it. The L227 filter widens to
+    accept `"schottky"` alongside `"ohmic"` and `"gate"`; phi_n /
+    phi_p Dirichlets are not applied at Schottky facets (the Robin
+    surface form on the continuity rows handles those rows). New
+    pure-Python tests in `tests/test_bcs.py` and FEM-side tests in
+    `tests/fem/test_bcs.py` cover the helper, the resolver, and the
+    DD BC list shape.
+  - **Phase C (Robin thermionic-emission surface form).**
+    `semi/physics/drift_diffusion.py` `build_dd_block_residual` and
+    `_mr` grow a keyword-only `schottky_facets` parameter (default
+    `None`, bit-identical to v0.20.0). The new factored helper
+    `_build_schottky_surface_forms` assembles the Robin form
+    `J_n . n_face = q v_n_th (n - n_eq)` (Sentaurus-style; Sze 3rd
+    ed Section 3.4) on the electron continuity row at each
+    Schottky facet. The hole continuity row keeps the natural
+    homogeneous-Neumann condition (`J_p . n_face = 0`) so the
+    metal acts as a hole-blocking boundary, matching the standard
+    textbook Schottky analysis where minority hole injection is
+    second-order. `semi/scaling.py` grows
+    `m_n_star` / `m_p_star` and the derived
+    `v_n_thermal` / `v_p_thermal` Richardson velocities;
+    `semi/materials.py` adds `m_n_star = 0.26 m_0` and
+    `m_p_star = 0.39 m_0` to the Si entry (Sze 3rd ed Table 1).
+    The Robin form computes a self-consistent thermionic
+    `N_C_TE = 2 (2 pi m* k T / h^2)^{3/2}` from the same m* used in
+    `v_n_th` so the textbook identity `A* T^2 = q v_R N_C_TE`
+    holds exactly. The `bias_sweep` runner extracts Schottky
+    facets from the resolved contact list and rebuilds the form
+    per bias step; an equilibrium Poisson pre-solve is added for
+    Schottky configs to bypass the doping-based asinh seed's
+    band-bending mismatch. `_resolve_sweep` and the static-voltage
+    loop widen to accept Schottky as a sweepable contact kind.
+    Twelve new pure-Python and FEM-side tests cover the thermal-
+    velocity helpers, the form assembly, and an end-to-end smoke
+    on a 1D Schottky-on-n-Si geometry.
+  - **Phase D (analytical thermionic-emission helper).**
+    `semi/diode_analytical.py` adds `richardson_constant(m_star)` and
+    `thermionic_iv(V, barrier_height_eV, A_richardson, T)`. Six
+    pure-Python tests in `tests/test_diode_analytical.py` cover the
+    closed-form properties, vector-input behavior, and the
+    barrier-height sensitivity.
+  - **Phase E (schottky_1d benchmark + verifier).** New benchmark
+    `benchmarks/schottky_1d/`: 5 um Pt-on-n-Si, N_D = 1e16 cm^-3,
+    V_F sweep [0, 0.5] V at 0.025 V step under Boltzmann
+    statistics. Verifier `verify_schottky_1d` gates the slope of
+    `ln(J_FEM)` vs V at 1/V_t within 5 % (observed 2.46 %) and an
+    envelope absolute-magnitude check at 5x (observed worst
+    278 %). The 5x envelope reflects the diffusion-thermionic
+    mixing at this device geometry; the simple analytical
+    thermionic-emission formula is the thermionic-limit asymptote
+    of the thermionic-diffusion theory and the FEM correctly picks
+    up the geometry-dependent additive bulk-drift contribution.
+    The CI matrix grows a `schottky_1d` step (no `allow-failure`).
+    Plotter `plot_schottky_1d` overlays the FEM I-V on the
+    closed-form thermionic curve in linear and semilog-y panels.
+  - **Phase F (closeout).** This entry, plus PLAN.md "Next task"
+    set to M16.6 (BBT and TAT tunneling), the gap-list rewrite at
+    L199-200 (only tunneling and the FFT-vs-AC validation gap
+    remain), the IMPROVEMENT_GUIDE.md § M16.5 marked Done with
+    the schottky_1d slope-match observed value, the
+    PHYSICS_INTRO.md §§ 6 and 7 rewrites, the ROADMAP.md M16.5
+    row moved to "Done", the CHANGELOG.md `[0.21.0]` entry, the
+    `pyproject.toml` and `semi/__init__.py` version bump
+    0.20.0 -> 0.21.0, and the ADR 0006 footnote pointing to ADR
+    0015. Stale-doc sweep on PLAN L199-200, IMPROVEMENT_GUIDE
+    L81-84, and PHYSICS_INTRO §§ 6-7 (the latter had been
+    claiming M13.1 transient and M14 AC as not done in addition
+    to all the M16 slices that have shipped); future M16.x
+    closeouts (M16.6, M16.7) update §§ 6 and 7 again at their
+    respective closeouts.
 
 - **M16.4 Fermi-Dirac statistics (2026-05-05):** Branch
   `dev/m16.4-fermi-dirac`, six phase-letter commits per

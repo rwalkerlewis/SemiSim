@@ -16,8 +16,9 @@
     "schema_version": {
       "type": "string",
       "pattern": "^2\\.\\d+\\.\\d+$",
-      "description": "Schema version in semver form. v2 enforces additionalProperties:false on every object node (typos in input keys fail validation rather than being silently ignored). Engine refuses inputs whose major does not match the engine's supported major. Current schema: 2.4.0; v2.0.0, v2.1.0, v2.2.0, and v2.3.0 inputs continue to validate (additive minors for the M16.1 caughey_thomas, M16.2 lombardi mobility, M16.3 Auger recombination, and M16.4 Fermi-Dirac statistics dispatches).",
+      "description": "Schema version in semver form. v2 enforces additionalProperties:false on every object node (typos in input keys fail validation rather than being silently ignored). Engine refuses inputs whose major does not match the engine's supported major. Current schema: 2.5.0; v2.0.0, v2.1.0, v2.2.0, v2.3.0, and v2.4.0 inputs continue to validate (additive minors for the M16.1 caughey_thomas, M16.2 lombardi mobility, M16.3 Auger recombination, M16.4 Fermi-Dirac statistics, and M16.5 Schottky contact dispatches).",
       "examples": [
+        "2.5.0",
         "2.4.0",
         "2.3.0",
         "2.2.0",
@@ -436,11 +437,11 @@
     "contacts": {
       "type": "array",
       "title": "Boundary contacts",
-      "description": "List of contact boundary conditions (ohmic, ideal gate, or insulating). Each entry names a facet and the BC type to apply there.",
+      "description": "List of contact boundary conditions (ohmic, ideal gate, insulating, or Schottky). Each entry names a facet and the BC type to apply there.",
       "items": {
         "type": "object",
         "title": "Contact entry",
-        "description": "One contact boundary condition. Ohmic contacts pin the potential and quasi-Fermi levels; gate contacts pin psi with a workfunction offset; insulating contacts contribute no Dirichlet row.",
+        "description": "One contact boundary condition. Ohmic contacts pin the potential and quasi-Fermi levels; gate contacts pin psi with a workfunction offset; insulating contacts contribute no Dirichlet row; Schottky contacts pin psi to the metal Fermi level and apply a thermionic-emission Robin BC on the continuity rows (M16.5).",
         "required": [
           "name",
           "facet",
@@ -473,9 +474,10 @@
             "enum": [
               "ohmic",
               "gate",
-              "insulating"
+              "insulating",
+              "schottky"
             ],
-            "description": "Contact type. `ohmic` enforces equilibrium majority-carrier concentrations and sets quasi-Fermi potentials to the applied voltage; `gate` is a Dirichlet BC on psi only with a workfunction offset; `insulating` is a no-flux Neumann BC."
+            "description": "Contact type. `ohmic` enforces equilibrium majority-carrier concentrations and sets quasi-Fermi potentials to the applied voltage; `gate` is a Dirichlet BC on psi only with a workfunction offset; `insulating` is a no-flux Neumann BC; `schottky` is a metal-semiconductor contact with thermionic-emission Robin BCs on the continuity rows and a metal-Fermi-level Dirichlet on psi (M16.5)."
           },
           "voltage": {
             "type": "number",
@@ -520,6 +522,15 @@
           "oxide_region": {
             "type": "string",
             "description": "For gate contacts on multi-region meshes, the name of the insulator region separating the gate from the semiconductor."
+          },
+          "barrier_height_eV": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0.0,
+            "default": null,
+            "description": "Schottky barrier height phi_B in eV (the metal-semiconductor barrier; Pt-on-n-Si is 0.85 eV per Sze 3rd ed Table 5). Required when `type` is `schottky`; ignored otherwise. Cited in the schottky_1d benchmark README."
           }
         },
         "additionalProperties": false

@@ -10,10 +10,12 @@ import pytest
 from semi.constants import Q
 from semi.diode_analytical import (
     depletion_width,
+    richardson_constant,
     shockley_iv_with_auger,
     shockley_long_diode_saturation,
     sns_total_reference,
     srh_generation_reference,
+    thermionic_iv,
     vbi_boltzmann,
     vbi_fermi_dirac,
 )
@@ -268,3 +270,78 @@ def test_vbi_fermi_dirac_default_kind_is_reference():
         N_A_FD, N_D_FD, N_I_FD, N_C_FD, N_V_FD, V_T, kind="reference",
     )
     assert default == pytest.approx(explicit, rel=1.0e-12)
+
+
+# ---------------------------------------------------------------------------
+# M16.5 thermionic-emission helper tests.
+# ---------------------------------------------------------------------------
+
+
+def test_richardson_constant_si_electron_within_one_percent():
+    # Si electron Richardson constant in SI units:
+    # A* = 4 pi q m* k^2 / h^3 with m* = 0.26 m_0 ~ 3.2e5 A m^-2 K^-2.
+    A_si_n = richardson_constant(0.26)
+    assert A_si_n == pytest.approx(3.2e5, rel=0.05)
+
+
+def test_richardson_constant_si_hole_proportional_to_mass():
+    # Doubling m* doubles A* exactly.
+    A_p1 = richardson_constant(0.39)
+    A_p2 = richardson_constant(0.78)
+    assert A_p2 == pytest.approx(2.0 * A_p1, rel=1.0e-12)
+
+
+def test_thermionic_iv_zero_at_v_zero():
+    A_si_n = richardson_constant(0.26)
+    J = thermionic_iv(0.0, barrier_height_eV=0.85, A_richardson=A_si_n, T=300.0)
+    # exp(0) - 1 = 0 exactly.
+    assert float(J) == pytest.approx(0.0, abs=1.0e-30)
+
+
+def test_thermionic_iv_grows_exponentially_under_forward_bias():
+    A_si_n = richardson_constant(0.26)
+    V_bias = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
+    J = thermionic_iv(
+        V_bias, barrier_height_eV=0.85, A_richardson=A_si_n, T=300.0,
+    )
+    # Strict monotone growth.
+    assert np.all(np.diff(J) > 0.0)
+    # Roughly factor exp((0.4-0.1)/V_t) ~ exp(11.6) ~ 1e5 between V=0.1 and V=0.4.
+    ratio = J[3] / J[0]
+    assert 5.0e4 < ratio < 5.0e5
+
+
+def test_thermionic_iv_recovers_saturation_at_negative_v():
+    # Reverse bias, J -> -J_s (saturation current with sign).
+    A_si_n = richardson_constant(0.26)
+    J = thermionic_iv(
+        -10.0, barrier_height_eV=0.85, A_richardson=A_si_n, T=300.0,
+    )
+    Js = A_si_n * 300.0 ** 2 * np.exp(-0.85 / V_T)
+    assert float(J) == pytest.approx(-Js, rel=1.0e-3)
+
+
+def test_thermionic_iv_array_input_returns_same_shape():
+    A_si_n = richardson_constant(0.26)
+    V_bias = np.linspace(0.0, 0.5, 21)
+    J = thermionic_iv(
+        V_bias, barrier_height_eV=0.85, A_richardson=A_si_n, T=300.0,
+    )
+    assert J.shape == V_bias.shape
+    assert J[0] == pytest.approx(0.0, abs=1.0e-30)
+
+
+def test_thermionic_iv_barrier_dependence_dominant():
+    """phi_B = 0.85 vs 0.70 eV at V_F = 0.3 V should differ by
+    exp(0.15 / V_t) ~ 330x in J. Demonstrates that the barrier height
+    dominates the I-V at moderate forward bias."""
+    A_si_n = richardson_constant(0.26)
+    J_85 = thermionic_iv(
+        0.3, barrier_height_eV=0.85, A_richardson=A_si_n, T=300.0,
+    )
+    J_70 = thermionic_iv(
+        0.3, barrier_height_eV=0.70, A_richardson=A_si_n, T=300.0,
+    )
+    expected = float(np.exp(0.15 / V_T))
+    assert float(J_70 / J_85) == pytest.approx(expected, rel=1.0e-3)
+

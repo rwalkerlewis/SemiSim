@@ -321,42 +321,81 @@ on a laptop.
 
 ## 6. What else can the solver do today
 
-Beyond equilibrium, kronos-semi also handles:
+Beyond equilibrium, kronos-semi handles:
 
 - **Bias sweeps.** Apply a non-zero voltage, solve the full coupled
-  (ψ, Φ_n, Φ_p) system. `benchmarks/pn_1d_bias/` produces a forward-bias
-  IV curve that matches the Shockley diode equation within 10%.
-- **Reverse bias.** Same solver, negative voltage. Recovers the reverse
-  saturation current from SRH generation. See
+  (psi, phi_n, phi_p) system. `benchmarks/pn_1d_bias/` produces a
+  forward-bias I-V curve that matches the Shockley diode equation
+  within 10 %.
+- **Reverse bias.** Same solver, negative voltage. Recovers the
+  reverse saturation current from SRH generation. See
   `benchmarks/pn_1d_bias_reverse/`.
 - **MOS capacitors.** Multi-region (silicon + oxide), gate contact,
-  C-V sweep. `benchmarks/mos_2d/`. The submesh for Φ_n, Φ_p is the
-  trickiest part of the codebase.
+  C-V sweep. Both the Cartesian path (`benchmarks/mos_2d/`) and the
+  axisymmetric path (`benchmarks/moscap_axisym_2d/`, M14.2). The
+  submesh for phi_n, phi_p is the trickiest part of the codebase.
+- **MOSFETs.** 2D MOSFET with Pao-Sah analytical anchor; the
+  Lombardi surface-mobility benchmark widens the verifier window
+  into the inversion regime. See `benchmarks/mosfet_2d/`.
 - **3D resistors.** Uniform doped bar, unstructured gmsh mesh,
   bipolar sweep. `benchmarks/resistor_3d/`.
+- **Transient (BDF1/BDF2).** Time-dependent solves with adaptive
+  step control. `semi/runners/transient.py` plus the 1D pn turn-on
+  benchmark `benchmarks/pn_1d_turnon/`.
+- **AC small-signal.** Linearized admittance around a DC operating
+  point. `semi/runners/ac_sweep.py` plus the AC sensitivity path
+  in `semi/runners/mos_cap_ac.py`. RC test case in
+  `benchmarks/rc_ac_sweep/`.
+- **Field-dependent mobility.** Caughey-Thomas velocity-saturation
+  (M16.1, `benchmarks/diode_velsat_1d/`) and Lombardi composite
+  surface mobility (M16.2; the mosfet_2d Pao-Sah window widens
+  accordingly).
+- **Auger recombination.** Closed-form additive kernel
+  R = (C_n n + C_p p)(np - n_i^2) (M16.3,
+  `benchmarks/diode_auger_1d/`).
+- **Fermi-Dirac statistics.** Generalized-Slotboom substitution
+  under the basic Blakemore approximation; the production path
+  under `physics.statistics: "fermi_dirac"` (M16.4,
+  `benchmarks/diode_fermi_dirac_1d/`). Boltzmann remains the
+  default.
+- **Schottky contacts.** Thermionic-emission Robin BC on the
+  electron continuity row plus a metal-Fermi-level psi Dirichlet
+  (M16.5, `benchmarks/schottky_1d/`). New in v0.21.0.
+
+Verification & validation: every domain-physics module has an MMS
+variant in `semi/verification/mms_dd.py` (Variants A through G).
+Boundary-physics milestones use analytical-benchmark plus byte-
+identity gates instead; see ADR 0015.
 
 ---
 
 ## 7. What it cannot do (yet)
 
 If your mental model of "semiconductor simulator" is COMSOL
-Semiconductor Module, be aware:
+Semiconductor Module, the remaining gaps are:
 
-- **No transient (time-dependent) solve.** Only steady-state.
-- **No AC small-signal.** No true capacitance extraction via
-  admittance; current MOS C-V is via d(Q_gate)/dV_gate.
-- **No Fermi-Dirac statistics.** Boltzmann only. Valid below about
-  10¹⁹ cm⁻³; degenerately doped regions start to disagree with
-  experiment.
-- **No velocity saturation** (Caughey-Thomas, Lombardi). Mobility is
-  constant. Real short-channel MOSFETs need this.
-- **No Auger or radiative recombination.** Only SRH.
-- **No tunneling, no impact ionization, no heterojunctions, no
-  Schottky contacts.**
+- **No tunneling.** No band-to-band (Kane / Zener / Esaki), no
+  trap-assisted (Hurkx). Required for any non-toy reverse-bias
+  diode and for floating-gate flash modeling. M16.6 closes this.
+- **No impact ionization.** Avalanche multiplication is not
+  modeled; reverse-breakdown benchmarks rely on tunneling instead
+  and are bounded above the avalanche regime. Not scheduled in
+  M16; tracked in IMPROVEMENT_GUIDE.md as a post-M19 deliverable.
+- **No heterojunctions.** Position-dependent chi and Eg are not
+  yet supported. M17 closes this; depends on M16.4 (Fermi-Dirac)
+  because heterojunctions break the non-degenerate approximation
+  at the barrier.
+- **No 3D MOSFET / FinFET / planar transistor.** The 3D coverage
+  today is the doped resistor and a pure-Poisson box. M19 closes
+  this with a 3D MOSFET on a gmsh-sourced unstructured mesh.
+- **No transient FFT vs AC sweep validation.** The transient and
+  AC paths are independently verified, but the cross-check that
+  an FFT of the transient response matches the AC sweep at the
+  same operating point is deferred. M16.7 closes this.
 
-These are all on the roadmap. See [IMPROVEMENT_GUIDE.md](IMPROVEMENT_GUIDE.md)
-for M13 (transient), M14 (AC), M16 (physics-completeness pass), M17
-(heterojunctions).
+These are all on the roadmap. See
+[IMPROVEMENT_GUIDE.md](IMPROVEMENT_GUIDE.md) § 4 for the per-
+milestone numerical acceptance thresholds.
 
 ---
 

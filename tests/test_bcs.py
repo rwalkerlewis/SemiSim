@@ -148,6 +148,107 @@ def test_resolve_contacts_gate_kind_carries_workfunction():
     assert out[0].work_function == pytest.approx(4.65)
 
 
+def test_resolve_contacts_schottky_carries_barrier_height():
+    cfg = _cfg_one_ohmic()
+    cfg["contacts"][0]["type"] = "schottky"
+    cfg["contacts"][0]["barrier_height_eV"] = 0.85
+    out = resolve_contacts(cfg)
+    assert out[0].kind == "schottky"
+    assert out[0].barrier_height_eV == pytest.approx(0.85)
+
+
+def test_resolve_contacts_non_schottky_leaves_barrier_none():
+    cfg = _cfg_one_ohmic()
+    cfg["contacts"][0]["barrier_height_eV"] = 0.85  # ignored on ohmic
+    out = resolve_contacts(cfg)
+    assert out[0].kind == "ohmic"
+    assert out[0].barrier_height_eV is None
+
+
+def test_resolve_contacts_gate_leaves_barrier_none():
+    cfg = _cfg_one_ohmic()
+    cfg["contacts"][0]["type"] = "gate"
+    cfg["contacts"][0]["workfunction"] = 4.05
+    out = resolve_contacts(cfg)
+    assert out[0].kind == "gate"
+    assert out[0].barrier_height_eV is None
+
+
+def test_schottky_psi_eq_closed_form():
+    """`_schottky_psi_eq` reduces to ln(N_C / n_i) - phi_B / V_t in
+    scaled units; manual calculation matched to within 1e-12.
+    """
+    import math
+
+    from semi.bcs import ContactBC, _schottky_psi_eq
+
+    class _RefMat:
+        def __init__(self, name, n_i, Nc):
+            self.name = name
+            self.n_i = n_i
+            self.Nc = Nc
+
+    class _Scaling:
+        def __init__(self, V0):
+            self.V0 = V0
+
+    sc = _Scaling(V0=0.025852)  # kT/q at 300 K
+    cases = [
+        ("Si_Pt", 1.0e10 * 1.0e6, 2.86e19 * 1.0e6, 0.85),
+        ("Si_Au", 1.0e10 * 1.0e6, 2.86e19 * 1.0e6, 0.80),
+        ("GaAs", 2.1e6 * 1.0e6, 4.7e17 * 1.0e6, 0.70),
+    ]
+    for name, n_i, Nc, phi_b in cases:
+        ref_mat = _RefMat(name=name, n_i=n_i, Nc=Nc)
+        c = ContactBC(
+            name="anode", kind="schottky", facet_tag=1, V_applied=0.0,
+            barrier_height_eV=phi_b,
+        )
+        observed = _schottky_psi_eq(c, ref_mat, sc)
+        expected = math.log(Nc / n_i) - phi_b / sc.V0
+        assert observed == pytest.approx(expected, rel=0.0, abs=1e-12), (
+            f"case {name!r}: expected {expected}, got {observed}"
+        )
+
+
+def test_schottky_psi_eq_missing_barrier_raises():
+    from semi.bcs import ContactBC, _schottky_psi_eq
+
+    class _RefMat:
+        name = "Si"
+        n_i = 1.0e16
+        Nc = 2.86e25
+
+    class _Scaling:
+        V0 = 0.025852
+
+    c = ContactBC(
+        name="anode", kind="schottky", facet_tag=1, V_applied=0.0,
+        barrier_height_eV=None,
+    )
+    with pytest.raises(ValueError, match="barrier_height_eV"):
+        _schottky_psi_eq(c, _RefMat(), _Scaling())
+
+
+def test_schottky_psi_eq_zero_nc_raises():
+    from semi.bcs import ContactBC, _schottky_psi_eq
+
+    class _RefMat:
+        name = "Insulator"
+        n_i = 1.0e16
+        Nc = 0.0
+
+    class _Scaling:
+        V0 = 0.025852
+
+    c = ContactBC(
+        name="anode", kind="schottky", facet_tag=1, V_applied=0.0,
+        barrier_height_eV=0.85,
+    )
+    with pytest.raises(ValueError, match="N_C"):
+        _schottky_psi_eq(c, _RefMat(), _Scaling())
+
+
 def test_contact_bc_dataclass_equality_and_repr():
     a = ContactBC(name="anode", kind="ohmic", facet_tag=1,
                   V_applied=0.3, work_function=None)
@@ -161,3 +262,11 @@ def test_contact_bc_dataclass_equality_and_repr():
     assert "ContactBC" in r
     assert "anode" in r
     assert "ohmic" in r
+
+
+def test_contact_bc_carries_barrier_height_field():
+    a = ContactBC(name="anode", kind="schottky", facet_tag=1,
+                  V_applied=0.0, work_function=None,
+                  barrier_height_eV=0.85)
+    assert a.barrier_height_eV == pytest.approx(0.85)
+    assert a.kind == "schottky"

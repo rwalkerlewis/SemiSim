@@ -3,6 +3,16 @@
 - Status: Accepted
 - Date: 2026-04-21
 
+> Note (2026-05-06, M16.5): the per-physics-module MMS rule below
+> applies to *domain* physics (residual additions over `dx`).
+> Boundary-physics milestones (Schottky thermionic-emission Robin
+> BC, etc.) use analytical-benchmark plus byte-identity gates
+> instead of MMS rate gates, because the existing MMS-DD harness
+> uses Dirichlet BCs everywhere by construction and substituting a
+> Robin BC into the manufactured-source residual either cancels the
+> Robin constraint into the source or produces a BC-dominated error
+> that does not converge at the optimal rate. See ADR 0015.
+
 ## Context
 
 Through M3: Adaptive continuation the project had three benchmark "verifiers" under

@@ -5,10 +5,11 @@ kronos-semi is a FEniCSx-based finite-element semiconductor device simulator tha
 ## Capability matrix
 
 All milestones M1 through M15 plus M14.3, M14.4, M16.1, M16.2,
-M16.3, and M16.4 have shipped as of v0.20.0. The table below is the
-current state; see the Delivery history section for per-milestone
-details. Planned milestones (M16.5-M16.7, M19, M20) have explicit
-acceptance tests in [`docs/IMPROVEMENT_GUIDE.md`](IMPROVEMENT_GUIDE.md).
+M16.3, M16.4, and M16.5 have shipped as of v0.21.0. The table below
+is the current state; see the Delivery history section for per-
+milestone details. Planned milestones (M16.6-M16.7, M19, M20) have
+explicit acceptance tests in
+[`docs/IMPROVEMENT_GUIDE.md`](IMPROVEMENT_GUIDE.md).
 
 | Capability | Dimensions | Status | Verifier |
 |---|---|---|---|
@@ -38,7 +39,7 @@ acceptance tests in [`docs/IMPROVEMENT_GUIDE.md`](IMPROVEMENT_GUIDE.md).
 | Lombardi surface mobility (M16.2) | 2D / 3D | shipped | MMS-DD Variant E L2 >= 1.99 / H1 >= 0.99 on every block (1D measured 2.000/1.999/2.000, 2D measured 1.997/1.995/1.998); mosfet_2d Pao-Sah verifier window widened to [V_T+0.4, V_T+1.0] V at 10% (run carries M16.1-era allow-failure flag pending separate SNES audit) |
 | Auger recombination (M16.3) | 1D / 2D | shipped | MMS-DD Variant F L2 >= 1.99 / H1 >= 0.99 on every block; diode_auger_1d >20% SRH-vs-Auger divergence at V_F = 0.9 V and <10% match to closed-form Hall-Auger ambipolar high-injection asymptote |
 | Fermi-Dirac statistics (M16.4) | 1D / 2D | shipped | MMS-DD Variant G L2 >= 1.99 / H1 >= 0.99 on every block (1D measured 2.000/2.000/2.000, 2D measured 1.997/1.999/1.999); diode_fermi_dirac_1d FEM-vs-Blakemore-analytical V_bi 0.0000% and FD-vs-Boltzmann V_bi divergence 7.37% at N_D=1e20 cm^-3 (basic Blakemore production form; see CHANGELOG `[0.20.0]` for the deviation rationale from the >15% / 1e-3-vs-full-integral nominal targets) |
-| Schottky contacts (M16.5) | 1D / 2D | Planned | schottky_1d thermionic-emission within 10% from V_F = 0.1 to 0.5 V |
+| Schottky contacts (M16.5) | 1D | shipped | schottky_1d slope `ln(J_FEM)` vs V matches 1/V_t within 5% (observed 2.46%) and `|J_FEM - J_thermionic|/J_thermionic < 5x` envelope absolute match (observed worst 278%) over V in [0.1, 0.5] V; ADR 0015 documents the V&V scope |
 | BBT and TAT tunneling (M16.6) | 1D | Planned | zener_1d Kane reverse-bias breakdown within 20% from V_R = 4 to 8 V |
 | Time-varying transient contact voltage (M16.7) | 1D / 2D | Planned | audit case 06 transient FFT vs AC sweep agreement within 5% |
 | Heterojunctions (M17) | 2D | Planned | hemt_2d 2DEG sheet density within 15% of self-consistent reference |
@@ -60,17 +61,16 @@ unstructured mesh, run on both CPU-MUMPS and GPU-AMGX backends; M19
 depends on M16.1 (Caughey-Thomas mobility) so saturation has any
 meaning.
 
-The physics catalogue is incomplete in three ways that matter for any
-quantitative TCAD comparison: (1) carrier statistics are Boltzmann
-throughout, which is wrong above ~1e19 cm^-3 (every modern MOSFET
-source/drain extension); (2) contacts are ohmic or ideal-gate only,
-with no Schottky thermionic-emission or thermionic-field-emission
-boundary conditions; (3) recombination is SRH only, with no Auger,
-no band-to-band tunneling, and no trap-assisted tunneling. M16.1
-through M16.7 each ship one of these as its own PR with a numerical
-acceptance test against an analytical or external reference; the
-order is dictated by physical dependencies (Fermi-Dirac before BBT,
-Caughey-Thomas before Lombardi).
+The physics catalogue still has two gaps that matter for any
+quantitative TCAD comparison: (1) tunneling (band-to-band and
+trap-assisted) is missing, which is required for any non-toy
+reverse-bias diode; (2) the cross-check that an FFT of the
+transient response matches the AC sweep at the same operating
+point is deferred. M16.6 closes the tunneling gap with a Kane BBT
+and Hurkx TAT pair, and M16.7 closes the transient-AC consistency
+gap. Field-dependent mobility (M16.1 / M16.2), Auger recombination
+(M16.3), Fermi-Dirac statistics (M16.4), and Schottky contacts
+(M16.5) have all shipped.
 
 ## Scope vs. COMSOL Semiconductor Module
 
@@ -96,16 +96,17 @@ analysis and axisymmetric (cylindrical) 2D devices:
   mesh ingest; strict-mode input schema v2.0.0 with
   `additionalProperties: false`; dead Scharfetter-Gummel primitives
   removed; coverage gate raised to 95.
+- Caughey-Thomas / Lombardi field-dependent mobility (M16.1, M16.2)
+- Auger and radiative recombination (M16.3)
+- Fermi-Dirac statistics under the basic Blakemore approximation
+  (M16.4); Boltzmann remains the default
+- Schottky contacts via thermionic-emission Robin BC plus metal-
+  Fermi-level psi Dirichlet (M16.5; v0.21.0)
 
 **Explicitly out of scope today (M16 physics completeness, M17
 heterojunctions, M19 3D MOSFET, M19.1 MPI, M20 server hardening
 planned):**
 
-- Caughey-Thomas / Lombardi field-dependent mobility (M16.1, M16.2)
-- Auger and radiative recombination (M16.3)
-- Fermi-Dirac statistics: Boltzmann throughout, valid below ~1e19
-  cm^-3 (M16.4)
-- Schottky contacts (M16.5)
 - Band-to-band / trap-assisted tunneling (M16.6)
 - Time-varying transient contact voltage (M16.7; closes audit
   case 06)

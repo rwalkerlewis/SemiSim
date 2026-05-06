@@ -26,9 +26,9 @@ the full annotated source of truth is the JSON file.
   contact / mesh / solver fields fail validation rather than being
   silently dropped).
 - Minor/patch skew is accepted silently within a major.
-- Current schema version: **2.4.0** (M16.4 Fermi-Dirac statistics dispatch);
-  v2.0.0, v2.1.0, v2.2.0, and v2.3.0 inputs continue to validate (additive
-  minors).
+- Current schema version: **2.5.0** (M16.5 Schottky contacts);
+  v2.0.0, v2.1.0, v2.2.0, v2.3.0, and v2.4.0 inputs continue to validate
+  (additive minors).
 
 Schemas are published to
 `https://rwalkerlewis.github.io/kronos-semi/schemas/` on every release
@@ -76,6 +76,16 @@ History:
   F_{1/2} in the generalized-Slotboom helpers (ADR 0004) and the
   Poisson source. v2.0.0, v2.1.0, v2.2.0, and v2.3.0 inputs continue
   to validate.
+- **2.5.0** (M16.5): additive Schottky contact type and
+  `barrier_height_eV` (M16.5). Widens the `contacts[].type` enum from
+  `["ohmic", "gate", "insulating"]` to add `"schottky"`, and adds
+  `contacts[].barrier_height_eV` (declared `["number", "null"]` in
+  JSON Schema; the loader enforces non-null and non-negative when
+  `type == "schottky"`). The Schottky path applies a metal-Fermi-level
+  Dirichlet on psi and a thermionic-emission Robin BC on the
+  continuity rows; ohmic, gate, and insulating contacts remain
+  bit-identical to v0.20.0. v2.0.0, v2.1.0, v2.2.0, v2.3.0, and
+  v2.4.0 inputs continue to validate.
 
 ## Top-level fields
 

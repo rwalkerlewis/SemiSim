@@ -33,6 +33,14 @@ class Material:
     n_i: float = 0.0              # intrinsic carrier density at 300 K, m^-3
     mu_n: float = 0.0             # electron mobility, m^2/(V s)
     mu_p: float = 0.0             # hole mobility, m^2/(V s)
+    # M16.5 thermionic-emission effective masses (relative to m_0).
+    # Used by the Schottky surface form to compute the carrier thermal
+    # velocity v_th = sqrt(kT / (2 pi m*)). These are the Sze 3rd ed
+    # Table 1 thermionic-emission masses, which differ from the
+    # conductivity effective masses. None on materials that have not
+    # been characterized for Schottky contacts.
+    m_n_star: float | None = None
+    m_p_star: float | None = None
 
     @property
     def epsilon(self) -> float:
@@ -58,6 +66,8 @@ MATERIALS: dict[str, Material] = {
         n_i=cm3_to_m3(1.0e10),       # Altermatt 2003
         mu_n=cm2_to_m2(1400.0),      # undoped, 300 K
         mu_p=cm2_to_m2(450.0),
+        m_n_star=0.26,               # Sze 3rd ed Table 1 thermionic mass
+        m_p_star=0.39,
     ),
     "Ge": Material(
         name="Ge",

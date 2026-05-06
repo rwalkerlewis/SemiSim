@@ -110,7 +110,18 @@ ENGINE_SUPPORTED_SCHEMA_MAJOR = max(ENGINE_SUPPORTED_SCHEMA_MAJORS)
 #                  the generalized-Slotboom helpers (ADR 0004) and the
 #                  Poisson source. Additive bump: v2.0.0, v2.1.0,
 #                  v2.2.0, and v2.3.0 inputs continue to validate.
-SCHEMA_SUPPORTED_MINOR = 4
+#   M16.5 (2.5.0): widened contacts[].type enum from
+#                  ["ohmic", "gate", "insulating"] to add "schottky"
+#                  for metal-semiconductor contacts; added
+#                  contacts[].barrier_height_eV (number | null;
+#                  required when type=='schottky'). The Schottky path
+#                  applies a metal-Fermi-level Dirichlet on psi and a
+#                  thermionic-emission Robin BC on the continuity
+#                  rows; ohmic, gate, and insulating contacts remain
+#                  bit-identical to v0.20.0. Additive bump: v2.0.0,
+#                  v2.1.0, v2.2.0, v2.3.0, and v2.4.0 inputs continue
+#                  to validate.
+SCHEMA_SUPPORTED_MINOR = 5
 
 
 @lru_cache(maxsize=8)
@@ -329,6 +340,37 @@ def _validate_mobility_lombardi(cfg: dict[str, Any]) -> None:
         )
 
 
+def _validate_schottky_contacts(cfg: dict[str, Any]) -> None:
+    """
+    Cross-field validation for `contacts[].type='schottky'`.
+
+    The JSON schema declares `barrier_height_eV` as `['number', 'null']`
+    so v2.0.0 through v2.4.0 inputs (no Schottky contact) keep
+    validating without supplying the field. The schema cannot express
+    "required only when type=='schottky'" without conditional logic;
+    we enforce that here so users see the failure at `validate(cfg)`
+    time rather than deep inside the FEM path. M16.5.
+    """
+    for contact in cfg.get("contacts", []):
+        if contact.get("type") != "schottky":
+            continue
+        phi_b = contact.get("barrier_height_eV")
+        name = contact.get("name", "<unnamed>")
+        if phi_b is None:
+            raise SchemaError(
+                f"contact {name!r} has type='schottky' but no "
+                f"barrier_height_eV; the metal-semiconductor barrier "
+                f"is required for the thermionic-emission Robin BC "
+                f"(M16.5; see Sze 3rd ed Table 5 for material-specific "
+                f"barrier heights)"
+            )
+        if float(phi_b) < 0.0:
+            raise SchemaError(
+                f"contact {name!r}: barrier_height_eV must be "
+                f"non-negative; got {phi_b}"
+            )
+
+
 _LOMBARDI_DEFAULTS: dict[str, float] = {
     "B_n": 4.75e7,
     "B_p": 9.93e6,
@@ -370,6 +412,14 @@ def _fill_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
             lombardi.setdefault(key, default)
     _validate_mobility_lombardi(cfg)
     phys.setdefault("statistics", "boltzmann")
+
+    # M16.5: every contact carries an explicit barrier_height_eV slot
+    # (default null). Schottky contacts then have a non-null value
+    # validated by _validate_schottky_contacts; non-Schottky contacts
+    # ignore it.
+    for contact in cfg.get("contacts", []):
+        contact.setdefault("barrier_height_eV", None)
+    _validate_schottky_contacts(cfg)
 
     solver = cfg.setdefault("solver", {})
     solver.setdefault("type", "equilibrium")

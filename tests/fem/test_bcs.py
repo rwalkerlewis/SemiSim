@@ -359,6 +359,150 @@ def test_build_dd_dirichlet_bcs_gate_voltage_overrides_via_resolve():
     assert _bc_value(gate_bc) == pytest.approx(expected, rel=1e-12)
 
 
+def _schottky_1d_cfg(*, anode_voltage: float = 0.0,
+                     barrier_height_eV: float = 0.85):
+    """Trivial 1D mesh with a Schottky anode and an ohmic cathode."""
+    return {
+        "name": "schottky_1d_bc_test",
+        "dimension": 1,
+        "mesh": {
+            "source": "builtin",
+            "extents": [[0.0, 1.0e-6]],
+            "resolution": [40],
+            "regions_by_box": [
+                {"name": "silicon", "tag": 1, "bounds": [[0.0, 1.0e-6]]}
+            ],
+            "facets_by_plane": [
+                {"name": "anode",   "tag": 1, "axis": 0, "value": 0.0},
+                {"name": "cathode", "tag": 2, "axis": 0, "value": 1.0e-6},
+            ],
+        },
+        "regions": {
+            "silicon": {"material": "Si", "tag": 1, "role": "semiconductor"},
+        },
+        "doping": [
+            {
+                "region": "silicon",
+                "profile": {"type": "uniform", "N_D": 1.0e16, "N_A": 0.0},
+            }
+        ],
+        "contacts": [
+            {"name": "anode", "facet": "anode", "type": "schottky",
+             "barrier_height_eV": float(barrier_height_eV),
+             "voltage": float(anode_voltage)},
+            {"name": "cathode", "facet": "cathode", "type": "ohmic",
+             "voltage": 0.0},
+        ],
+        "physics": {"temperature": 300.0, "statistics": "boltzmann"},
+        "solver": {"type": "equilibrium"},
+    }
+
+
+def test_build_psi_dirichlet_bcs_schottky_value_matches_metal_fermi_level():
+    """Psi at a Schottky facet equals
+    ln(N_C / n_i) - phi_B / V_t + V_applied / V_t (scaled units).
+    """
+    import math
+
+    from dolfinx import fem
+
+    cfg = _schottky_1d_cfg(anode_voltage=0.0, barrier_height_eV=0.85)
+    ref_mat = get_material("Si")
+    sc = make_scaling_from_config(cfg, ref_mat)
+    msh, _cell_tags, facet_tags = build_mesh(cfg)
+    V = fem.functionspace(msh, ("Lagrange", 1))
+    N_raw_fn = build_profile(cfg["doping"])
+
+    contacts = resolve_contacts(cfg, facet_tags=facet_tags)
+    bcs = build_psi_dirichlet_bcs(V, msh, facet_tags, contacts, sc, ref_mat, N_raw_fn)
+
+    # Two contacts -> two psi BCs (Schottky anode + ohmic cathode).
+    assert len(bcs) == 2
+    schottky_bc = bcs[0]
+    expected = math.log(ref_mat.Nc / ref_mat.n_i) - 0.85 / sc.V0
+    assert _bc_value(schottky_bc) == pytest.approx(expected, rel=1e-12)
+
+
+def test_build_psi_dirichlet_bcs_schottky_applied_bias_shifts_psi():
+    """Forward bias V_a > 0 shifts psi at the Schottky facet by V_a / V_t."""
+    import math
+
+    from dolfinx import fem
+
+    V_anode = 0.3
+    cfg = _schottky_1d_cfg(anode_voltage=V_anode, barrier_height_eV=0.85)
+    ref_mat = get_material("Si")
+    sc = make_scaling_from_config(cfg, ref_mat)
+    msh, _cell_tags, facet_tags = build_mesh(cfg)
+    V = fem.functionspace(msh, ("Lagrange", 1))
+    N_raw_fn = build_profile(cfg["doping"])
+
+    contacts = resolve_contacts(cfg, facet_tags=facet_tags)
+    bcs = build_psi_dirichlet_bcs(V, msh, facet_tags, contacts, sc, ref_mat, N_raw_fn)
+
+    schottky_bc = bcs[0]
+    expected = math.log(ref_mat.Nc / ref_mat.n_i) - 0.85 / sc.V0 + V_anode / sc.V0
+    assert _bc_value(schottky_bc) == pytest.approx(expected, rel=1e-12)
+
+
+def test_build_dd_dirichlet_bcs_schottky_psi_only_no_phi_bcs():
+    """A Schottky contact contributes a single psi Dirichlet; phi_n
+    and phi_p rows are not pinned at the Schottky facet (they are
+    handled by the Phase C Robin form on the continuity equations).
+    The cathode-only ohmic contact contributes 3 BCs; the anode
+    Schottky contact contributes 1 (psi only).
+    """
+    import math
+
+    from semi.physics.drift_diffusion import make_dd_block_spaces
+
+    cfg = _schottky_1d_cfg(anode_voltage=0.0, barrier_height_eV=0.85)
+    ref_mat = get_material("Si")
+    sc = make_scaling_from_config(cfg, ref_mat)
+    msh, _cell_tags, facet_tags = build_mesh(cfg)
+    spaces = make_dd_block_spaces(msh)
+    N_raw_fn = build_profile(cfg["doping"])
+
+    contacts = resolve_contacts(cfg, facet_tags=facet_tags)
+    bcs = build_dd_dirichlet_bcs(
+        spaces, msh, facet_tags, contacts, sc, ref_mat, N_raw_fn,
+    )
+
+    # Anode (schottky): bcs[0] = psi.
+    # Cathode (ohmic): bcs[1] = psi, bcs[2] = phi_n, bcs[3] = phi_p.
+    assert len(bcs) == 4
+    schottky_bc = bcs[0]
+    expected = math.log(ref_mat.Nc / ref_mat.n_i) - 0.85 / sc.V0
+    assert _bc_value(schottky_bc) == pytest.approx(expected, rel=1e-12)
+
+
+def test_build_dd_dirichlet_bcs_schottky_voltage_override_via_resolve():
+    """Mid-sweep override updates the Schottky psi BC."""
+    import math
+
+    from semi.physics.drift_diffusion import make_dd_block_spaces
+
+    cfg = _schottky_1d_cfg(anode_voltage=0.0, barrier_height_eV=0.85)
+    ref_mat = get_material("Si")
+    sc = make_scaling_from_config(cfg, ref_mat)
+    msh, _cell_tags, facet_tags = build_mesh(cfg)
+    spaces = make_dd_block_spaces(msh)
+    N_raw_fn = build_profile(cfg["doping"])
+
+    V_anode = 0.4
+    contacts = resolve_contacts(
+        cfg, facet_tags=facet_tags, voltages={"anode": V_anode},
+    )
+    bcs = build_dd_dirichlet_bcs(
+        spaces, msh, facet_tags, contacts, sc, ref_mat, N_raw_fn,
+    )
+
+    assert len(bcs) == 4
+    schottky_bc = bcs[0]
+    expected = math.log(ref_mat.Nc / ref_mat.n_i) - 0.85 / sc.V0 + V_anode / sc.V0
+    assert _bc_value(schottky_bc) == pytest.approx(expected, rel=1e-12)
+
+
 def test_build_dd_dirichlet_bcs_matches_legacy_at_bias_step():
     from semi.physics.drift_diffusion import make_dd_block_spaces
 
@@ -389,11 +533,12 @@ def test_build_dd_dirichlet_bcs_matches_legacy_at_bias_step():
         assert np.array_equal(_bc_dofs(bc_new), _bc_dofs(bc_old))
 
 
-def test_build_dd_dirichlet_bcs_skips_non_ohmic_non_gate_contacts():
-    """Contacts with kind not in ('ohmic', 'gate') are silently skipped.
+def test_build_dd_dirichlet_bcs_skips_insulating_contacts():
+    """Contacts with kind 'insulating' produce no Dirichlet entries.
 
-    Exercises the ``continue`` branch inside ``build_dd_dirichlet_bcs``
-    that filters out schottky contacts from the BC list.
+    Exercises the ``continue`` branch inside ``build_dd_dirichlet_bcs``.
+    Insulating contacts are dropped at ``resolve_contacts`` time, but the
+    builder is also defensive against an explicit insulating ContactBC.
     """
     from semi.bcs import ContactBC
     from semi.physics.drift_diffusion import make_dd_block_spaces
@@ -405,17 +550,16 @@ def test_build_dd_dirichlet_bcs_skips_non_ohmic_non_gate_contacts():
     spaces = make_dd_block_spaces(msh)
     N_raw_fn = build_profile(cfg["doping"])
 
-    # Resolve the ohmic contacts normally, then prepend a fake schottky
-    # contact.  build_dd_dirichlet_bcs must skip it without raising.
     ohmic_contacts = resolve_contacts(cfg, facet_tags=facet_tags)
-    schottky = ContactBC(
-        name="fake_schottky", kind="schottky", facet_tag=999, V_applied=0.0,
+    insulating = ContactBC(
+        name="fake_insulating", kind="insulating", facet_tag=999,
+        V_applied=0.0,
     )
-    contacts_with_schottky = [schottky] + list(ohmic_contacts)
+    contacts = [insulating] + list(ohmic_contacts)
 
     bcs = build_dd_dirichlet_bcs(
-        spaces, msh, facet_tags, contacts_with_schottky, sc, ref_mat, N_raw_fn,
+        spaces, msh, facet_tags, contacts, sc, ref_mat, N_raw_fn,
     )
-    # Only the two ohmic contacts (3 BCs each) should appear; the schottky
-    # contact is skipped entirely.
+    # Only the two ohmic contacts (3 BCs each) should appear; the
+    # insulating contact is silently skipped.
     assert len(bcs) == 6

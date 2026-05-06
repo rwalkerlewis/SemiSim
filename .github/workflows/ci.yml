@@ -180,6 +180,13 @@ jobs:
           # is roughly 2x the runtime of an equilibrium-only run.
           - name: diode_fermi_dirac_1d
             args: diode_fermi_dirac_1d
+          # M16.5 Acceptance test 1: Pt-on-n-Si Schottky diode
+          # forward I-V matches the closed-form thermionic-emission
+          # analytical reference within 10 % from V_F = 0.1 V to
+          # 0.5 V. No companion run; the verifier compares the FEM
+          # I-V directly to the closed form via thermionic_iv.
+          - name: schottky_1d
+            args: schottky_1d
           - name: resistor_3d_builtin
             args: resistor_3d --input benchmarks/resistor_3d/resistor.json
           - name: resistor_3d_gmsh

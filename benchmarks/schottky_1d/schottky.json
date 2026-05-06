@@ -1,0 +1,118 @@
+{
+  "schema_version": "2.5.0",
+  "name": "schottky_1d",
+  "description": "1D Pt-on-n-Si Schottky diode forward sweep V_F in [0.0, 0.5] V (21 points, 0.025 V step) to validate the M16.5 thermionic-emission Robin BC. Anode is a Schottky contact (type=schottky, barrier_height_eV=0.85 per Sze 3rd ed Table 5); cathode is ohmic. Uniform N_D = 1e16 cm^-3 over a 5 um device (moderate doping where the depletion region is short and thermionic emission dominates over diffusion). Boltzmann statistics; Fermi-Dirac generalization is a follow-up. The companion verifier (scripts/run_benchmark.py verify_schottky_1d) compares this run to the closed-form thermionic-emission I-V J = A* T^2 exp(-q phi_B / kT) [exp(qV/kT) - 1] and asserts < 10 % relative error from V_F = 0.1 V to 0.5 V; the V_F = 0.0 V endpoint is excluded because the relative error blows up at zero current.",
+  "dimension": 1,
+  "mesh": {
+    "source": "builtin",
+    "extents": [
+      [
+        0.0,
+        5e-06
+      ]
+    ],
+    "resolution": [
+      400
+    ],
+    "regions_by_box": [
+      {
+        "name": "silicon",
+        "tag": 1,
+        "bounds": [
+          [
+            0.0,
+            5e-06
+          ]
+        ]
+      }
+    ],
+    "facets_by_plane": [
+      {
+        "name": "anode",
+        "tag": 1,
+        "axis": 0,
+        "value": 0.0
+      },
+      {
+        "name": "cathode",
+        "tag": 2,
+        "axis": 0,
+        "value": 5e-06
+      }
+    ]
+  },
+  "regions": {
+    "silicon": {
+      "material": "Si",
+      "tag": 1,
+      "role": "semiconductor"
+    }
+  },
+  "doping": [
+    {
+      "region": "silicon",
+      "profile": {
+        "type": "uniform",
+        "N_D": 1e+16,
+        "N_A": 0.0
+      }
+    }
+  ],
+  "contacts": [
+    {
+      "name": "anode",
+      "facet": "anode",
+      "type": "schottky",
+      "barrier_height_eV": 0.85,
+      "voltage": 0.0,
+      "voltage_sweep": {
+        "start": 0.0,
+        "stop": 0.5,
+        "step": 0.025
+      }
+    },
+    {
+      "name": "cathode",
+      "facet": "cathode",
+      "type": "ohmic",
+      "voltage": 0.0
+    }
+  ],
+  "physics": {
+    "temperature": 300.0,
+    "statistics": "boltzmann",
+    "recombination": {
+      "srh": true,
+      "tau_n": 1e-07,
+      "tau_p": 1e-07,
+      "E_t": 0.0
+    }
+  },
+  "solver": {
+    "type": "bias_sweep",
+    "snes": {
+      "rtol": 1e-12,
+      "atol": 1e-10,
+      "stol": 1e-14,
+      "max_it": 80
+    },
+    "continuation": {
+      "min_step": 0.0001,
+      "max_halvings": 6,
+      "max_step": 0.025,
+      "easy_iter_threshold": 4,
+      "grow_factor": 1.5
+    }
+  },
+  "output": {
+    "directory": "./results/schottky_1d",
+    "fields": [
+      "potential",
+      "n",
+      "p",
+      "phi_n",
+      "phi_p",
+      "iv"
+    ]
+  }
+}

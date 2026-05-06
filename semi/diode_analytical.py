@@ -11,9 +11,11 @@ in m, current density in A/m^2.
 """
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
-from .constants import Q
+from .constants import HBAR, KB, M0, Q
 
 
 def shockley_long_diode_saturation(
@@ -203,6 +205,73 @@ def srh_generation_reference(
 
     J_gen_net = (Q * n_i / (2.0 * tau_eff)) * (W - W0)
     return J_gen_net, W0, V_bi
+
+
+# ---------------------------------------------------------------------------
+# M16.5 Schottky thermionic-emission analytical helpers.
+# ---------------------------------------------------------------------------
+
+
+def richardson_constant(m_star_rel: float) -> float:
+    """
+    Richardson constant ``A* = 4 pi q m* k^2 / h^3`` for an effective
+    electron mass ``m_star_rel`` (relative to the bare electron rest
+    mass ``m_0``). Returns SI units of A m^-2 K^-2 (multiply by 1e-4
+    for the textbook A cm^-2 K^-2 unit).
+
+    Si values (Sze 3rd ed Table 5; using thermionic-emission effective
+    masses):
+      - electron, m* ≈ 0.26 m_0  -> A* ≈ 32 A cm^-2 K^-2 ≈ 3.2e5 A m^-2 K^-2
+        (the literature uses higher reported values for Si, e.g. 110
+        A cm^-2 K^-2, when m_DOS or transverse-mass averaging is used;
+        the M16.5 verifier uses the Sze Table 1 thermionic mass to
+        keep `richardson_constant(m_n*) * T^2 / (q N_C)` consistent
+        with `Scaling.v_n_thermal`).
+      - hole,     m* ≈ 0.39 m_0  -> A* ≈ 47 A cm^-2 K^-2.
+
+    Pure-Python; no dolfinx. M16.5.
+    """
+    h_planck = 2.0 * math.pi * HBAR
+    return float(
+        4.0 * math.pi * Q * (float(m_star_rel) * M0) * (KB ** 2) / (h_planck ** 3)
+    )
+
+
+def thermionic_iv(
+    V, barrier_height_eV: float, A_richardson: float, T: float,
+) -> np.ndarray:
+    """
+    Closed-form thermionic-emission I-V for a Schottky contact (Sze
+    3rd ed eq 3.4.10):
+
+        J(V) = A* T^2 exp(-q phi_B / kT) [exp(qV / kT) - 1]
+
+    Parameters
+    ----------
+    V : float | array-like
+        Applied bias in volts.
+    barrier_height_eV : float
+        Schottky barrier height phi_B in eV (e.g. 0.85 eV for
+        Pt-on-n-Si).
+    A_richardson : float
+        Richardson constant A* in SI units (A m^-2 K^-2). Compute
+        from :func:`richardson_constant`.
+    T : float
+        Device temperature in kelvin.
+
+    Returns
+    -------
+    numpy.ndarray
+        Current density J in A m^-2 (multiply by 1e-4 for A cm^-2).
+
+    Pure-Python; no dolfinx. M16.5.
+    """
+    V_arr = np.asarray(V, dtype=float)
+    V_t = KB * float(T) / Q
+    Js = float(A_richardson) * float(T) ** 2 * math.exp(
+        -float(barrier_height_eV) / V_t
+    )
+    return Js * (np.exp(V_arr / V_t) - 1.0)
 
 
 # ---------------------------------------------------------------------------
