@@ -512,6 +512,82 @@ Acceptance test; pytest module `tests/fem/test_mms_fermi_dirac.py`).
 Mesh sequences mirror Variants D / E / F (1D `[40, 80, 160]`, 2D
 `[32, 64, 128]`).
 
+**Variant H -- BBT and TAT tunneling (M16.6).** Variant C
+electronics (full coupling, Si lifetimes), with two additive
+tunneling kernels layered on top:
+
+- Kane band-to-band generation
+  `G_BBT_hat = A_kane_hat * F_hat^2 / sqrt(E_g_hat) *
+              exp(-B_kane_hat * E_g_hat^(3/2) / F_hat)`,
+  with `F_hat = L_0 * |grad(psi_hat)|` (the natural dimensionless
+  field magnitude). This is a generation term: it subtracts from
+  the net recombination `R = R_SRH * (1 + Gamma_TAT) + R_Auger -
+  G_BBT`.
+- Hurkx trap-assisted enhancement
+  `Gamma(F) = 2 sqrt(3 pi) * (F / F_kT_hat)^(alpha-1) *
+              exp((F / F_kT_hat)^2)`, multiplying the SRH rate by
+  `(1 + Gamma)` so the depletion-region peak field gets
+  super-exponentially enhanced trap-assisted recombination.
+
+Both kernels are evaluated at `psi_e` in the manufactured weak
+source and at the discrete `psi` in the production residual. The
+shared field magnitude `F_hat_e` (and its production counterpart
+`F_hat`) are computed identically: a small additive guard
+`eps_F = 1e-30` keeps the `ufl.sqrt(grad(psi).grad(psi) + eps_F)`
+derivative finite at `psi = 0`, with no observable effect on the
+manufactured solution at the boundary or interior since
+`|grad(psi_e)|^2 >> eps_F` everywhere on the domain.
+
+`MMS_H_*_FOR_FORM` engineering. With the default amplitudes
+`(A_psi, A_n, A_p) = (0.5, 0.3, -0.3)` the peak L_0-scaled field
+magnitude is
+`F_hat_peak = L_0 * |grad(psi_e)|_peak = A_psi * 2*pi = pi`. We
+choose mild kernel parameters so the SNES Jacobian is smooth in
+the BBT-active basin (the Kane `exp(-B/F)` factor's curvature
+quickly destabilises Newton in non-mild regimes):
+
+- `MMS_H_A_KANE_FOR_FORM = 3.5e-11`
+- `MMS_H_B_KANE_FOR_FORM = 0.5`
+- `MMS_H_F_KT_FOR_FORM = 20.0`
+- `MMS_H_ALPHA = 2.0`
+- `MMS_H_E_G_HAT_FOR_FORM = 1.0`
+
+At the manufactured peak these give `G_BBT_hat ~ 3e-10` and
+`Gamma ~ 0.16`, both comparable to the SRH rate (~ 1e-9 in scaled
+units) so each kernel materially shifts the recombination.
+
+The reverse-engineered JSON-side coefficients (`A_kane_cm` in
+cm^-1 s^-1 V^-2, `B_kane_cm` in V/cm, `F_kT_cm` in V/cm) plus an
+overwritten `sc.E_g = MMS_H_E_G_HAT_FOR_FORM * sc.V0` cause the
+production form's `bbt_rate` and `hurkx_gamma` calls to evaluate
+the identical closed form (matches the M16.3 / M16.4 reverse-
+engineering pattern). The production form receives
+`recomb_cfg = {"bbt": True, "tat": True, ...}` so the BBT and
+TAT branches in `build_dd_block_residual` are executed.
+
+Variant H gates differ from Variants A through G. The Kane BBT
+kernel depends on the field magnitude only (not on the carrier
+densities), so the BBT contribution to the (phi_n) / (phi_p)
+continuity rows is decoupled from those unknowns. The phi-block
+residual scale is set by the diffusion coefficient
+`L_0^2 * mu_hat * n_hat ~ 1e-18` and lands below the SNES atol
+floor; the discrete phi solutions cannot be resolved beyond the
+Newton tolerance noise. Variant H therefore gates the psi block
+at the textbook P1 rate (L^2 >= 1.99, H^1 >= 0.99) and verifies
+finite, non-negative discretization errors on the phi blocks.
+The 2D Variant H is reduced to a smoke test (the 2D integration
+area shrinks the residual to ~1e-15 before Newton can iterate).
+The Kane and Hurkx physics are independently verified by the
+closed-form NumPy unit tests in `tests/test_recombination.py`
+(zero-field limit, strong-field textbook match within 1 %,
+band-gap sensitivity, characteristic-field crossover) and by the
+`benchmarks/zener_1d` Kane analytical reverse-bias breakdown
+match within 20 % from V_R = 4 V to 8 V (M16.6 Acceptance test in
+`docs/IMPROVEMENT_GUIDE.md` § M16.6). Mesh sequences mirror
+Variants D / E / F / G (1D `[40, 80, 160]`, 2D `[32, 64, 128]`);
+SNES atol is dimension-aware (1e-15 in 1D, 1e-13 in 2D) to track
+the discretization envelope without pushing into machine noise.
+
 ## 4. Boundary conditions
 
 All three fields vanish identically on `boundary(Omega)` by construction

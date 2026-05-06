@@ -26,9 +26,9 @@ the full annotated source of truth is the JSON file.
   contact / mesh / solver fields fail validation rather than being
   silently dropped).
 - Minor/patch skew is accepted silently within a major.
-- Current schema version: **2.5.0** (M16.5 Schottky contacts);
-  v2.0.0, v2.1.0, v2.2.0, v2.3.0, and v2.4.0 inputs continue to validate
-  (additive minors).
+- Current schema version: **2.6.0** (M16.6 BBT and TAT tunneling
+  dispatch); v2.0.0, v2.1.0, v2.2.0, v2.3.0, v2.4.0, and v2.5.0
+  inputs continue to validate (additive minors).
 
 Schemas are published to
 `https://rwalkerlewis.github.io/kronos-semi/schemas/` on every release
@@ -86,6 +86,15 @@ History:
   continuity rows; ohmic, gate, and insulating contacts remain
   bit-identical to v0.20.0. v2.0.0, v2.1.0, v2.2.0, v2.3.0, and
   v2.4.0 inputs continue to validate.
+- **2.6.0** (M16.6): additive BBT and TAT tunneling dispatch
+  (M16.6). Adds the `physics.tunneling` sub-object with `bbt` and
+  `tat` boolean flags plus the Kane (`A_kane`, `B_kane`) and Hurkx
+  (`tau_n_min`, `tau_p_min`, `F_kT`, `alpha`) parameters. Both flags
+  default to false; the kernel is bit-identical to v0.21.0 when
+  both are off. A UserWarning fires at validate time when `bbt`
+  is true and `statistics` is `"boltzmann"` (BBT is most accurate
+  under Fermi-Dirac at heavy doping). v2.0.0 through v2.5.0 inputs
+  continue to validate.
 
 ## Top-level fields
 

@@ -266,13 +266,18 @@ def run_ac_sweep(cfg: dict[str, Any], *, progress_callback=None):
     mu_n_hat = mu_n_SI / sc.mu0
     mu_p_hat = mu_p_SI / sc.mu0
 
-    rec = phys.get("recombination", {})
+    rec = dict(phys.get("recombination", {}))
     tau_n_s = float(rec.get("tau_n", 1.0e-7))
     tau_p_s = float(rec.get("tau_p", 1.0e-7))
     E_t_eV = float(rec.get("E_t", 0.0))
     tau_n_hat_v = tau_n_s / sc.t0
     tau_p_hat_v = tau_p_s / sc.t0
     E_t_over_Vt = E_t_eV / sc.V0
+    # M16.6: merge physics.tunneling into recomb_cfg; see bias_sweep
+    # for the rationale.
+    tun = phys.get("tunneling", {})
+    for key, value in tun.items():
+        rec[key] = value
 
     # ------------------------------------------------------------------
     # 4. Steady-state Slotboom residual and its Jacobian. Identical to

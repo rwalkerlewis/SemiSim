@@ -121,7 +121,17 @@ ENGINE_SUPPORTED_SCHEMA_MAJOR = max(ENGINE_SUPPORTED_SCHEMA_MAJORS)
 #                  bit-identical to v0.20.0. Additive bump: v2.0.0,
 #                  v2.1.0, v2.2.0, v2.3.0, and v2.4.0 inputs continue
 #                  to validate.
-SCHEMA_SUPPORTED_MINOR = 5
+#   M16.6 (2.6.0): added the physics.tunneling sub-object with bbt
+#                  and tat boolean flags plus the Kane (A_kane,
+#                  B_kane) and Hurkx (tau_n_min, tau_p_min, F_kT,
+#                  alpha) parameters. Both flags default to false; the
+#                  kernel is bit-identical to v0.21.0 when both are
+#                  off. A UserWarning fires at validate time when
+#                  bbt is true and statistics is "boltzmann" (BBT is
+#                  most accurate under Fermi-Dirac at heavy doping).
+#                  Additive bump: v2.0.0 through v2.5.0 inputs
+#                  continue to validate.
+SCHEMA_SUPPORTED_MINOR = 6
 
 
 @lru_cache(maxsize=8)
@@ -371,6 +381,42 @@ def _validate_schottky_contacts(cfg: dict[str, Any]) -> None:
             )
 
 
+_TUNNELING_DEFAULTS: dict[str, Any] = {
+    "bbt": False,
+    "tat": False,
+    "A_kane": 4.0e14,
+    "B_kane": 1.9e7,
+    "tau_n_min": 1.0e-9,
+    "tau_p_min": 1.0e-9,
+    "F_kT": 1.4e7,
+    "alpha": 2.0,
+}
+
+
+def _warn_bbt_with_boltzmann(cfg: dict[str, Any]) -> None:
+    """
+    Emit a UserWarning when physics.tunneling.bbt is enabled but the
+    statistics dispatch is the Boltzmann default. The Kane prefactor
+    depends on the FD-corrected density of states at the band edges, so
+    the Boltzmann path uses a leading-order correction. M16.6.
+    """
+    phys = cfg.get("physics", {})
+    tun = phys.get("tunneling", {}) or {}
+    if not tun.get("bbt", False):
+        return
+    if phys.get("statistics", "boltzmann") == "boltzmann":
+        warnings.warn(
+            "physics.tunneling.bbt is enabled but physics.statistics is "
+            "'boltzmann'; Kane band-to-band tunneling is most accurate "
+            "under Fermi-Dirac statistics at heavy doping (>~1e19 cm^-3). "
+            "The Boltzmann branch uses a leading-order correction. Set "
+            "physics.statistics='fermi_dirac' for quantitative breakdown "
+            "current (M16.6; see docs/PHYSICS.md section 1.4).",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 _LOMBARDI_DEFAULTS: dict[str, float] = {
     "B_n": 4.75e7,
     "B_p": 9.93e6,
@@ -401,6 +447,13 @@ def _fill_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
     # identity is preserved on the auger-off branch.
     rec.setdefault("C_n", 2.8e-31)
     rec.setdefault("C_p", 9.9e-32)
+    # M16.6 tunneling defaults. Both flags default to false; the
+    # parameters are filled to Si textbook defaults but unused when the
+    # flags are off, preserving v0.21.0 byte-identity on every existing
+    # benchmark.
+    tun = phys.setdefault("tunneling", {})
+    for key, default in _TUNNELING_DEFAULTS.items():
+        tun.setdefault(key, default)
     mob = phys.setdefault("mobility", {})
     mob.setdefault("model", "constant")
     mob.setdefault("mu_n", 1400.0)
@@ -412,6 +465,7 @@ def _fill_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
             lombardi.setdefault(key, default)
     _validate_mobility_lombardi(cfg)
     phys.setdefault("statistics", "boltzmann")
+    _warn_bbt_with_boltzmann(cfg)
 
     # M16.5: every contact carries an explicit barrier_height_eV slot
     # (default null). Schottky contacts then have a non-null value

@@ -361,9 +361,13 @@ Beyond equilibrium, kronos-semi handles:
 - **Schottky contacts.** Thermionic-emission Robin BC on the
   electron continuity row plus a metal-Fermi-level psi Dirichlet
   (M16.5, `benchmarks/schottky_1d/`). New in v0.21.0.
+- **Band-to-band and trap-assisted tunneling.** Kane BBT
+  generation and Hurkx-enhanced SRH, both as additive
+  generation/recombination kernels (M16.6,
+  `benchmarks/zener_1d/`). New in v0.22.0.
 
 Verification & validation: every domain-physics module has an MMS
-variant in `semi/verification/mms_dd.py` (Variants A through G).
+variant in `semi/verification/mms_dd.py` (Variants A through H).
 Boundary-physics milestones use analytical-benchmark plus byte-
 identity gates instead; see ADR 0015.
 
@@ -374,9 +378,6 @@ identity gates instead; see ADR 0015.
 If your mental model of "semiconductor simulator" is COMSOL
 Semiconductor Module, the remaining gaps are:
 
-- **No tunneling.** No band-to-band (Kane / Zener / Esaki), no
-  trap-assisted (Hurkx). Required for any non-toy reverse-bias
-  diode and for floating-gate flash modeling. M16.6 closes this.
 - **No impact ionization.** Avalanche multiplication is not
   modeled; reverse-breakdown benchmarks rely on tunneling instead
   and are bounded above the avalanche regime. Not scheduled in

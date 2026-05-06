@@ -16,8 +16,9 @@
     "schema_version": {
       "type": "string",
       "pattern": "^2\\.\\d+\\.\\d+$",
-      "description": "Schema version in semver form. v2 enforces additionalProperties:false on every object node (typos in input keys fail validation rather than being silently ignored). Engine refuses inputs whose major does not match the engine's supported major. Current schema: 2.5.0; v2.0.0, v2.1.0, v2.2.0, v2.3.0, and v2.4.0 inputs continue to validate (additive minors for the M16.1 caughey_thomas, M16.2 lombardi mobility, M16.3 Auger recombination, M16.4 Fermi-Dirac statistics, and M16.5 Schottky contact dispatches).",
+      "description": "Schema version in semver form. v2 enforces additionalProperties:false on every object node (typos in input keys fail validation rather than being silently ignored). Engine refuses inputs whose major does not match the engine's supported major. Current schema: 2.6.0; v2.0.0, v2.1.0, v2.2.0, v2.3.0, v2.4.0, and v2.5.0 inputs continue to validate (additive minors for the M16.1 caughey_thomas, M16.2 lombardi mobility, M16.3 Auger recombination, M16.4 Fermi-Dirac statistics, M16.5 Schottky contact, and M16.6 BBT and TAT tunneling dispatches).",
       "examples": [
+        "2.6.0",
         "2.5.0",
         "2.4.0",
         "2.3.0",
@@ -599,6 +600,59 @@
               "minimum": 0.0,
               "description": "Hole Auger coefficient. Si default (Dziewior-Schmid) is 9.9e-32 cm^6/s.",
               "default": 9.9e-32
+            }
+          },
+          "additionalProperties": false
+        },
+        "tunneling": {
+          "type": "object",
+          "title": "Band-to-band and trap-assisted tunneling (M16.6)",
+          "description": "Tunneling generation/recombination dispatch. Both flags default to false; when both are off the kernel is bit-identical to v0.21.0. Kane band-to-band tunneling adds a generation term G_BBT to both continuity rows. Hurkx trap-assisted tunneling enhances the SRH rate by a field-dependent factor (1 + Gamma(F)). Most accurate under Fermi-Dirac statistics at heavy doping; the Boltzmann path emits a UserWarning at validate time.",
+          "properties": {
+            "bbt": {
+              "type": "boolean",
+              "description": "Whether the Kane band-to-band tunneling generation kernel is added to the continuity rows. When false, the tunneling generation is bit-identical to v0.21.0 (zero contribution).",
+              "default": false
+            },
+            "tat": {
+              "type": "boolean",
+              "description": "Whether the Hurkx trap-assisted tunneling enhancement of the SRH rate is active. When false, SRH reduces to the M14.3 textbook form bit-identical to v0.21.0.",
+              "default": false
+            },
+            "A_kane": {
+              "type": "number",
+              "minimum": 0.0,
+              "description": "Kane band-to-band prefactor in cm^-1 s^-1 V^-2. Si default per Sze section 8.4 (4e14).",
+              "default": 4.0e14
+            },
+            "B_kane": {
+              "type": "number",
+              "minimum": 0.0,
+              "description": "Kane band-to-band exponent coefficient in V/cm. Si default 1.9e7 V/cm.",
+              "default": 1.9e7
+            },
+            "tau_n_min": {
+              "type": "number",
+              "minimum": 0.0,
+              "description": "SRH electron lifetime used by the Hurkx enhancement at the trap-tunneling-only limit, seconds.",
+              "default": 1.0e-9
+            },
+            "tau_p_min": {
+              "type": "number",
+              "minimum": 0.0,
+              "description": "SRH hole lifetime used by the Hurkx enhancement at the trap-tunneling-only limit, seconds.",
+              "default": 1.0e-9
+            },
+            "F_kT": {
+              "type": "number",
+              "minimum": 0.0,
+              "description": "Hurkx characteristic field in V/cm; field above which the Hurkx enhancement is order unity (Hurkx 1992).",
+              "default": 1.4e7
+            },
+            "alpha": {
+              "type": "number",
+              "description": "Hurkx exponent (dimensionless).",
+              "default": 2.0
             }
           },
           "additionalProperties": false

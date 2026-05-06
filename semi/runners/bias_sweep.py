@@ -117,13 +117,22 @@ def run_bias_sweep(
     mu_n_hat = mu_n_SI / sc.mu0
     mu_p_hat = mu_p_SI / sc.mu0
 
-    rec = phys.get("recombination", {})
+    rec = dict(phys.get("recombination", {}))
     tau_n_s = float(rec.get("tau_n", 1.0e-7))
     tau_p_s = float(rec.get("tau_p", 1.0e-7))
     E_t_eV = float(rec.get("E_t", 0.0))
     tau_n_hat = tau_n_s / sc.t0
     tau_p_hat = tau_p_s / sc.t0
     E_t_over_Vt = E_t_eV / sc.V0
+    # M16.6: merge the physics.tunneling sub-dict into the recomb_cfg
+    # the form builder consumes, so the bbt/tat flags and Kane/Hurkx
+    # parameters live alongside auger / C_n / C_p. The merge favours
+    # tunneling-side keys on collision (none in practice; the schema
+    # forbids overlapping property names via additionalProperties:
+    # false on each sub-object).
+    tun = phys.get("tunneling", {})
+    for key, value in tun.items():
+        rec[key] = value
 
     sweep_contact, sweep_values = _resolve_sweep(cfg)
 

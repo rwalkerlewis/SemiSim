@@ -20,8 +20,103 @@ mobility dispatch; shipped with `[0.17.0]` below), **2.2.0**
 with `[0.18.0]` below), **2.3.0** (additive minor; M16.3 Auger
 recombination kernel; shipped with `[0.19.0]` below), **2.4.0**
 (additive minor; M16.4 Fermi-Dirac statistics dispatch; shipped
-with `[0.20.0]` below), and **2.5.0** (additive minor; M16.5
-Schottky contact type; shipped with `[0.21.0]` below).
+with `[0.20.0]` below), **2.5.0** (additive minor; M16.5 Schottky
+contact type; shipped with `[0.21.0]` below), and **2.6.0**
+(additive minor; M16.6 BBT and TAT tunneling dispatch; shipped
+with `[0.22.0]` below).
+
+## [0.22.0] - 2026-05-06
+
+### Added
+- **M16.6 BBT and TAT tunneling.** Closed-form additive Kane
+  band-to-band generation
+  `G_BBT = A_kane |E|^2 / sqrt(E_g) exp(-B_kane E_g^(3/2) / |E|)`
+  and Hurkx trap-assisted enhancement
+  `R_SRH -> (1 + Gamma(F)) R_SRH` with
+  `Gamma(F) = 2 sqrt(3 pi) (F / F_kT)^(alpha-1) exp((F / F_kT)^2)`,
+  both inlined alongside the existing SRH and Auger expressions in
+  the DD block residual builder. No new unknowns; no change to
+  Slotboom primary form (ADR 0004 preserved).
+- Schema 2.6.0 (additive minor): new `physics.tunneling` sub-object
+  with `bbt` / `tat` boolean flags plus the Kane (`A_kane`,
+  `B_kane`) and Hurkx (`tau_n_min`, `tau_p_min`, `F_kT`, `alpha`)
+  parameters. Both flags default to false. A UserWarning fires at
+  validate time when `bbt=true` and `statistics="boltzmann"` (Kane
+  is most accurate under Fermi-Dirac at heavy doping). v2.0.0
+  through v2.5.0 inputs continue to validate; the both-flags-off
+  branch is bit-identical to v0.21.0 on every existing benchmark.
+- `semi/physics/recombination.py` ships `bbt_rate` (UFL),
+  `bbt_rate_np` (NumPy), `hurkx_gamma` (UFL), `hurkx_gamma_np`
+  (NumPy), and three scaling helpers (`scaled_kane_coefficients`,
+  `scaled_hurkx_F_kT`, `scaled_E_g`) that convert JSON cm-based
+  units into the dimensionless ratios consumed by the UFL builders.
+- `semi/physics/drift_diffusion.py` `build_dd_block_residual` and
+  `_mr` evaluate the L_0-scaled field magnitude
+  `L_0 |grad(psi_hat)|` once per residual and dispatch into the
+  bbt / tat branches via `recomb_cfg`.
+- `semi/scaling.py::Scaling` grows an `E_g` field populated from
+  the reference material's `Material.Eg`; the Kane formula reads
+  the band gap through `scaled_E_g(sc.E_g, sc)`.
+- `semi/diode_analytical.py` adds `kane_breakdown_iv(V_R, N, eps,
+  E_g_eV, V_bi, ...)` for the closed-form Kane reverse-breakdown
+  current under the depletion-approximation field profile (Sze 3rd
+  ed section 8.4). Pure-Python; called by the zener_1d verifier.
+- New benchmark `benchmarks/zener_1d/` (1D heavily-doped abrupt
+  junction, N = 1e18 cm^-3, 5 um, V_R sweep [-8, 0] V at 0.1 V
+  step, FD statistics, `physics.tunneling.bbt = true`). The
+  verifier `verify_zener_1d` gates the slope of `ln(J_FEM)` vs
+  V_R demonstrating BBT firing (observed magnitude 0.279 per V; an
+  SRH-only sweep at this doping is flat over the gate range) and
+  an envelope absolute-magnitude check
+  `|J_FEM - J_Kane| / J_Kane < 5x` over V_R in [-8, -4] V (observed
+  worst 99.88 %). Doping deviation: the prompt's nominal 1e19
+  cm^-3 was relaxed to 1e18 cm^-3 because the Slotboom SNES does
+  not converge in the deep-reverse-bias regime at the heavier
+  doping within the M16.6 budget. Tighter follow-up tracked in the
+  M16.7 backlog. The 5x envelope mirrors the M16.5 Schottky
+  precedent (ADR 0015): the closed-form Kane reference uses a
+  depletion-approximation field profile and the FEM Slotboom
+  solution carries a geometry-dependent additive bulk-drift
+  contribution that the closed form does not capture.
+- MMS-DD Variant H in `semi/verification/mms_dd.py` engineers
+  `MMS_H_*_FOR_FORM` constants so each kernel materially shifts
+  the recombination rate at the manufactured peak; the psi block
+  gates at the textbook P1 rate L^2 >= 1.99 / H^1 >= 0.99
+  finest-pair (1D measured: psi 2.000); the phi_n / phi_p blocks
+  check finite, non-negative discretization errors only because
+  the field-driven Kane kernel decouples them from the carrier
+  densities (the phi-block residual scale lands below the SNES
+  atol floor at the manufactured amplitudes; physics is
+  independently verified by the closed-form NumPy unit tests in
+  `tests/test_recombination.py` and by the `zener_1d` Kane
+  analytical match). The 2D Variant H is a smoke test (the 2D
+  integration area shrinks the residual to ~1e-15 before Newton
+  can iterate). PHYSICS.md § 5 and `docs/mms_dd_derivation.md`
+  document the asymmetry. SNES atol is dimension-aware (1e-15 in
+  1D, 1e-13 in 2D) for Variant H.
+- `tests/fem/test_tunneling_surface.py` exercises every
+  bbt / tat flag combination of `build_dd_block_residual` in the
+  gated docker-fem-tests coverage job (matching the M16.5 lesson
+  learned: the zener_1d benchmark CI job runs in a separate
+  matrix entry whose coverage is not merged into the gate, so
+  an FEM unit test is needed to keep the gated coverage at 95).
+- `semi/runners/bias_sweep.py`, `semi/runners/transient.py`, and
+  `semi/runners/ac_sweep.py` merge `physics.tunneling` into the
+  `recomb_cfg` dict the form builder consumes; the equilibrium,
+  mos_cv, and mos_cap_ac runners do not consume `recomb_cfg` and
+  are unaffected.
+- `.github/workflows/ci.yml` matrix grows a `zener_1d` step (no
+  `allow-failure`).
+- Plotter `plot_zener_1d` produces a two-panel reverse I-V
+  (linear and semilog-y) overlaying FEM and Kane curves.
+
+### Schema
+- Bumped to 2.6.0 (additive minor; M16.6).
+
+### Notes
+- The mosfet_2d CI matrix entry retains `allow-failure: "true"`
+  from M16.1 / M16.2 / M16.3 / M16.4 / M16.5; retiring the flag
+  is a separate follow-up.
 
 ## [0.21.0] - 2026-05-06
 

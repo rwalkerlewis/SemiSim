@@ -107,7 +107,7 @@ from .mms_poisson import (
 # ---------------------------------------------------------------------------
 # Module-level constants. See derivation Section 2.
 # ---------------------------------------------------------------------------
-VARIANTS: tuple[str, ...] = ("A", "B", "C", "D", "E", "F", "G")
+VARIANTS: tuple[str, ...] = ("A", "B", "C", "D", "E", "F", "G", "H")
 
 #: Default amplitude triple `(A_psi, A_n, A_p)` used by the pytest gate.
 #: `A_p = -A_n` ensures Variant C's SRH numerator
@@ -208,6 +208,39 @@ MMS_F_C_P_HAT_FOR_FORM: float = 8.0e8
 MMS_G_ETA_OFFSET_N: float = -1.0
 MMS_G_ETA_OFFSET_P: float = -1.0
 
+#: Variant H Kane and Hurkx for-form constants (M16.6). Engineered so
+#: each tunneling kernel shifts the total recombination rate by O(0.1)
+#: of R_SRH at the typical manufactured amplitudes, mirroring the
+#: Variant F O(0.3) reduction target. R_SRH at the manufactured peak
+#: is ~ |np - n_i^2| / denom ~ -1.0e-9 in scaled units (ni_hat=1e-6
+#: with the default A_psi=0.5 / A_n=0.3 / A_p=-0.3 amplitudes); the
+#: BBT and TAT magnitudes are tuned so each contributes ~ 0.1 of that.
+#:
+#: The peak L_0-scaled field magnitude is
+#:     F_hat_peak = L_0 * |grad(psi_e)|_peak = A_psi * 2*pi = pi,
+#: so:
+#:   - Kane prefactor MMS_H_A_KANE_FOR_FORM = 3.5e-11 with
+#:     MMS_H_B_KANE_FOR_FORM = 0.5, MMS_H_E_G_HAT_FOR_FORM = 1.0 gives
+#:     G_BBT_hat = 3.5e-11 * pi^2 * exp(-0.5 / pi) ~ 3.0e-10 at peak;
+#:   - Hurkx characteristic field MMS_H_F_KT_FOR_FORM = 20.0 with
+#:     MMS_H_ALPHA = 2.0 gives Gamma(F_hat=pi) ~ 0.16 (16 % SRH
+#:     enhancement, ~ 0.1 |R_SRH| absolute shift).
+#:
+#: Reverse-engineered JSON values feed into build_dd_block_residual via
+#: run_one_level so the production form sees the identical closed forms
+#: at the manufactured triple. The conversions in
+#: semi/physics/recombination.py are
+#:     A_kane_hat = A_kane_cm * 100 * V_0^(3/2) * t_0 / (L_0^2 * C_0)
+#:     B_kane_hat = B_kane_cm * 100 * L_0 * sqrt(V_0)
+#:     F_kT_hat   = F_kT_cm   * 100 * L_0 / V_0
+#: so the inverse formulas in run_one_level produce JSON-side numbers
+#: that hit the for-form constants exactly.
+MMS_H_A_KANE_FOR_FORM: float = 3.5e-11
+MMS_H_B_KANE_FOR_FORM: float = 0.5
+MMS_H_F_KT_FOR_FORM: float = 20.0
+MMS_H_ALPHA: float = 2.0
+MMS_H_E_G_HAT_FOR_FORM: float = 1.0
+
 
 @dataclass(frozen=True)
 class MMSDDCase:
@@ -267,12 +300,13 @@ def _exact_triple_ufl(mesh, dim: int, L: float,
     """
     import ufl
 
-    # Variants D, E, F, and G share the Variant B/C smooth-sin triple;
-    # the active branch is what differs (CT mobility for D, Lombardi
-    # mobility for E, Auger recombination for F, Fermi-Dirac
-    # statistics for G), evaluated in `_build_weak_sources` and
-    # dispatched into the production form via `run_one_level`.
-    full_triple = variant in ("B", "C", "D", "E", "F", "G")
+    # Variants D, E, F, G, and H share the Variant B/C smooth-sin
+    # triple; the active branch is what differs (CT mobility for D,
+    # Lombardi mobility for E, Auger recombination for F, Fermi-Dirac
+    # statistics for G, BBT and TAT tunneling for H), evaluated in
+    # `_build_weak_sources` and dispatched into the production form
+    # via `run_one_level`.
+    full_triple = variant in ("B", "C", "D", "E", "F", "G", "H")
     x = ufl.SpatialCoordinate(mesh)
     if dim == 1:
         psi_e = A_psi * ufl.sin(2.0 * ufl.pi * x[0] / L)
@@ -398,9 +432,27 @@ def _build_weak_sources(
     n1 = ni_hat * math.exp(0.0)
     p1 = ni_hat * math.exp(-0.0)
     np_minus_nieq_e = n_e * p_e - ni_hat * ni_hat
-    R_e = np_minus_nieq_e / (
+    R_base_e = np_minus_nieq_e / (
         tau_p * (n_e + n1) + tau_n * (p_e + p1)
     )
+    # Variant H: Hurkx field-enhancement Gamma(F) multiplies the SRH
+    # rate. Built from the L_0-scaled gradient of psi_e to match the
+    # production form's field expression.
+    if variant == "H":
+        eps_F_const_h = fem.Constant(mesh, PETSc.ScalarType(1.0e-30))
+        L0_const_h = fem.Constant(mesh, PETSc.ScalarType(sc.L0))
+        F_hat_e = L0_const_h * ufl.sqrt(
+            ufl.dot(ufl.grad(psi_e), ufl.grad(psi_e)) + eps_F_const_h
+        )
+        F_kT_hat_c = fem.Constant(
+            mesh, PETSc.ScalarType(MMS_H_F_KT_FOR_FORM)
+        )
+        alpha_c = fem.Constant(mesh, PETSc.ScalarType(MMS_H_ALPHA))
+        from semi.physics.recombination import hurkx_gamma
+        Gamma_e = hurkx_gamma(F_hat_e, F_kT_hat_c, alpha_c)
+        R_e = (1.0 + Gamma_e) * R_base_e
+    else:
+        R_e = R_base_e
     if variant == "F":
         # Auger contribution at the manufactured triple, using the
         # for-form C_n_hat / C_p_hat. The reverse-engineered JSON
@@ -410,6 +462,23 @@ def _build_weak_sources(
         C_n_hat_c = fem.Constant(mesh, PETSc.ScalarType(MMS_F_C_N_HAT_FOR_FORM))
         C_p_hat_c = fem.Constant(mesh, PETSc.ScalarType(MMS_F_C_P_HAT_FOR_FORM))
         R_e = R_e + (C_n_hat_c * n_e + C_p_hat_c * p_e) * np_minus_nieq_e
+    if variant == "H":
+        # Subtract the Kane BBT generation. The same L0-scaled field
+        # used by Gamma above feeds bbt_rate; constants match the
+        # for-form values reverse-engineered into JSON cm-based units
+        # in run_one_level.
+        from semi.physics.recombination import bbt_rate
+        A_kane_hat_c = fem.Constant(
+            mesh, PETSc.ScalarType(MMS_H_A_KANE_FOR_FORM)
+        )
+        B_kane_hat_c = fem.Constant(
+            mesh, PETSc.ScalarType(MMS_H_B_KANE_FOR_FORM)
+        )
+        E_g_hat_c = fem.Constant(
+            mesh, PETSc.ScalarType(MMS_H_E_G_HAT_FOR_FORM)
+        )
+        G_BBT_e = bbt_rate(F_hat_e, E_g_hat_c, A_kane_hat_c, B_kane_hat_c)
+        R_e = R_e - G_BBT_e
 
     if variant == "D":
         # Caughey-Thomas: substitute the closed-form mobility evaluated
@@ -547,16 +616,19 @@ def run_one_level(case: MMSDDCase, *, sc=None) -> MMSDDResult:
     # Initial guess: zero everywhere. Trivially satisfies the
     # homogeneous Dirichlet BC and the charge-neutrality identity
     # (n_init = p_init = ni_hat, rho_init = 0 since N_hat = 0).
+    # Variant H also starts at zero; Newton converges to the BBT-
+    # active basin via the engineered mild kernel parameters and
+    # the dimension-aware SNES atol below.
     for fn in (spaces.psi, spaces.phi_n, spaces.phi_p):
         fn.x.array[:] = 0.0
         fn.x.scatter_forward()
 
     # Per-variant lifetime choice (derivation Section 2, SRH row).
-    # Variants C, D, E, F, and G use Si lifetimes (D adds CT
+    # Variants C, D, E, F, G, and H use Si lifetimes (D adds CT
     # mobility, E adds the Lombardi composite, F adds Auger
-    # recombination, G adds Fermi-Dirac statistics, all on top of
-    # the C electronics).
-    if case.variant in ("C", "D", "E", "F", "G"):
+    # recombination, G adds Fermi-Dirac statistics, H adds Kane and
+    # Hurkx tunneling, all on top of the C electronics).
+    if case.variant in ("C", "D", "E", "F", "G", "H"):
         tau_n_hat = tau_p_hat = TAU_SI_S / sc.t0
     else:
         tau_n_hat = tau_p_hat = TAU_OFF_HAT
@@ -647,6 +719,35 @@ def run_one_level(case: MMSDDCase, *, sc=None) -> MMSDDResult:
             "C_n": MMS_F_C_N_HAT_FOR_FORM / scale_aug,
             "C_p": MMS_F_C_P_HAT_FOR_FORM / scale_aug,
         }
+    elif case.variant == "H":
+        # Reverse-engineer the JSON cm-based values so
+        # scaled_kane_coefficients / scaled_hurkx_F_kT lands on the
+        # MMS_H_*_FOR_FORM constants used by the manufactured weak
+        # source. Also overwrite sc.E_g so the production form's
+        # scaled_E_g(sc.E_g, sc) = MMS_H_E_G_HAT_FOR_FORM.
+        A_kane_cm_h = (
+            MMS_H_A_KANE_FOR_FORM
+            * sc.L0 ** 2 * sc.C0
+            / (sc.V0 ** 1.5 * sc.t0)
+            / 100.0
+        )
+        B_kane_cm_h = (
+            MMS_H_B_KANE_FOR_FORM
+            / (sc.L0 * math.sqrt(sc.V0))
+            / 100.0
+        )
+        F_kT_cm_h = (
+            MMS_H_F_KT_FOR_FORM * sc.V0 / sc.L0 / 100.0
+        )
+        recomb_cfg = {
+            "bbt": True,
+            "tat": True,
+            "A_kane": A_kane_cm_h,
+            "B_kane": B_kane_cm_h,
+            "F_kT": F_kT_cm_h,
+            "alpha": MMS_H_ALPHA,
+        }
+        sc.E_g = MMS_H_E_G_HAT_FOR_FORM * sc.V0
 
     # Variant E needs a `facet_tags` MeshTags so the lombardi UFL
     # dispatch passes the runner-wiring guard. The MMS doesn't have a
@@ -743,15 +844,44 @@ def run_one_level(case: MMSDDCase, *, sc=None) -> MMSDDResult:
         "snes_stol": 1.0e-12,
         "snes_max_it": 80,
     }
+    # Variant H: the Kane / Hurkx Jacobian is locally ill-conditioned
+    # in the BBT-active basin; Newton converges in O(30) iterations
+    # but tends to overshoot near the discrete solution where the
+    # exp(-B/F) factor saturates. A modest snes_atol above the
+    # discretization floor and a higher snes_max_it let SNES exit
+    # cleanly without driving Newton into the F-domain failure mode
+    # (reason=-8, NaN in exp). Discretization-rate gates remain at
+    # the L2 >= 1.99 / H1 >= 0.99 acceptance thresholds.
+    if case.variant == "H":
+        # Variant H absolute tolerance is dimension-aware: in 1D the
+        # manufactured continuity-row residual is O(1e-13) at the
+        # typical amplitudes, but in 2D the integration area
+        # (L_0^2 ~ 4e-12) shrinks the per-block residual to O(1e-15)
+        # and SNES with atol < 1e-14 stagnates near machine noise.
+        # The dimension-keyed atol keeps Newton iterating just enough
+        # to resolve the discretization-error envelope without
+        # pushing into floating-point round-off.
+        if case.dim == 1:
+            petsc_options["snes_atol"] = 1.0e-15
+        else:
+            petsc_options["snes_atol"] = 1.0e-13
+        petsc_options["snes_max_it"] = 100
     prefix = (
         f"mms_dd_dim{case.dim}_N{case.N}_var{case.variant}"
         f"_amp{case.A_psi:g}_"
     )
     t0 = time.perf_counter()
+    # Variant H: small Jacobian shift covers the null-pivot risk that
+    # MUMPS reports when the BBT-driven Jacobian is locally
+    # ill-conditioned (the exp(-B/F) factor's derivative is
+    # super-sensitive near F = 0). Other variants pass shift=0.0 so
+    # the Variant A through G byte-identity invariant holds.
+    jac_shift = 1.0e-14 if case.variant == "H" else 0.0
     info = solve_nonlinear_block(
         [F_psi, F_phi_n, F_phi_p],
         [spaces.psi, spaces.phi_n, spaces.phi_p],
         bcs, prefix=prefix, petsc_options=petsc_options,
+        jacobian_shift=jac_shift,
     )
     dt = time.perf_counter() - t0
     if not info.get("converged", False):

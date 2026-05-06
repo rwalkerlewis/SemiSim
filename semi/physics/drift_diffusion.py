@@ -113,16 +113,26 @@ def build_dd_block_residual(
         form; see docs/PHYSICS.md section 1.3 for the flux derivation
         and `semi.physics.mobility` for the closed form).
     recomb_cfg : dict, optional
-        The `cfg["physics"]["recombination"]` sub-dict. `None`
-        (default) or `{"auger": False, ...}` is bit-identical to
-        pre-M16.3 (SRH-only recombination kernel). When
-        `recomb_cfg.get("auger", False)` is True, the Auger kernel
+        The merged `cfg["physics"]["recombination"]` and
+        `cfg["physics"]["tunneling"]` sub-dicts. `None` (default) or
+        `{"auger": False, "bbt": False, "tat": False, ...}` is
+        bit-identical to pre-M16.3 (SRH-only recombination kernel,
+        no tunneling). When `recomb_cfg.get("auger", False)` is True,
+        the Auger kernel
         `R_Auger = (C_n_hat n_hat + C_p_hat p_hat) (n_hat p_hat
         - n_i_hat^2)` is added to the SRH rate; `C_n_hat` and
         `C_p_hat` are read from `recomb_cfg["C_n"]` / `["C_p"]` (in
-        cm^6/s; converted to scaled units inline). See
-        `semi.physics.recombination` for the closed form and the unit
-        derivation. M16.3.
+        cm^6/s; converted to scaled units inline). M16.3.
+        When `recomb_cfg.get("tat", False)` is True, the SRH rate is
+        replaced by `(1 + Gamma_TAT(F)) * R_SRH` with the Hurkx
+        field-enhancement factor `Gamma_TAT` evaluated at the
+        scaled field magnitude `|grad(psi_hat)|`. M16.6.
+        When `recomb_cfg.get("bbt", False)` is True, the Kane
+        band-to-band generation rate `G_BBT` is subtracted from the
+        net recombination (Kane is a generation, contributing
+        `-G_BBT` to R). M16.6. See `semi.physics.recombination` for
+        the closed forms and `scaled_kane_coefficients` /
+        `scaled_hurkx_F_kT` for the unit conversions.
     statistics_cfg : dict, optional
         The `cfg["physics"]` sub-slice for carrier statistics. `None`
         (default) or `{"statistics": "boltzmann"}` is bit-identical
@@ -219,9 +229,46 @@ def build_dd_block_residual(
     n1 = ni_hat * _math.exp(E_t_over_Vt)
     p1 = ni_hat * _math.exp(-E_t_over_Vt)
     np_minus_nieq = n_hat * p_hat - ni_hat * ni_hat
-    R = np_minus_nieq / (
+    R_base = np_minus_nieq / (
         tau_p * (n_hat + n1) + tau_n * (p_hat + p1)
     )
+    # M16.6: shared dimensionless field magnitude. Kane BBT and Hurkx
+    # TAT both read the L_0-scaled magnitude `L_0 * |grad(psi_hat)|`,
+    # which is the natural dimensionless ratio because
+    # `|E_phys| = (V_0 / L_0) * (L_0 * |grad(psi_hat)|)`. The eps_F
+    # term is a tiny additive guard so the ufl.sqrt derivative
+    # remains finite at the rare interior points where grad(psi_hat)
+    # is exactly zero (typical solves never see this in practice but
+    # the SNES Jacobian assembly evaluates derivatives at the initial
+    # guess where the field can be zero).
+    tun_cfg = recomb_cfg or {}
+    bbt_on = bool(tun_cfg.get("bbt", False))
+    tat_on = bool(tun_cfg.get("tat", False))
+    if bbt_on or tat_on:
+        eps_F_const = fem.Constant(msh, PETSc.ScalarType(1.0e-30))
+        L0_const = fem.Constant(msh, PETSc.ScalarType(sc.L0))
+        F_hat_mag = L0_const * ufl.sqrt(
+            ufl.dot(ufl.grad(psi), ufl.grad(psi)) + eps_F_const
+        )
+    else:
+        F_hat_mag = None
+
+    if tat_on:
+        # M16.6 Hurkx TAT enhancement. The SRH rate is multiplied by
+        # (1 + Gamma(F)); Gamma vanishes as F -> 0 so the bulk is
+        # unchanged and the depletion-region peak field gets the
+        # super-exponential enhancement.
+        from .recombination import hurkx_gamma, scaled_hurkx_F_kT
+        F_kT_cm = float(tun_cfg.get("F_kT", 1.4e7))
+        alpha = float(tun_cfg.get("alpha", 2.0))
+        F_kT_hat_val = scaled_hurkx_F_kT(F_kT_cm, sc)
+        F_kT_hat = fem.Constant(msh, PETSc.ScalarType(F_kT_hat_val))
+        Gamma_TAT = hurkx_gamma(F_hat_mag, F_kT_hat, alpha)
+        R_SRH = (1.0 + Gamma_TAT) * R_base
+    else:
+        R_SRH = R_base
+
+    R = R_SRH
     if recomb_cfg is not None and recomb_cfg.get("auger", False):
         # JSON contract: C_n / C_p in cm^6/s. Convert to m^6/s (1e-12)
         # then to dimensionless C_hat = C_SI * C0^2 * t0; see ADR 0002
@@ -233,6 +280,30 @@ def build_dd_block_residual(
         C_n_hat = fem.Constant(msh, PETSc.ScalarType(C_n_hat_val))
         C_p_hat = fem.Constant(msh, PETSc.ScalarType(C_p_hat_val))
         R = R + (C_n_hat * n_hat + C_p_hat * p_hat) * np_minus_nieq
+
+    if bbt_on:
+        # M16.6 Kane BBT generation. G_BBT is positive; it subtracts
+        # from R because the R = U - G convention here treats
+        # generation as a negative contribution to net recombination.
+        from .recombination import (
+            bbt_rate,
+            scaled_E_g,
+            scaled_kane_coefficients,
+        )
+        A_kane_cm = float(tun_cfg.get("A_kane", 4.0e14))
+        B_kane_cm = float(tun_cfg.get("B_kane", 1.9e7))
+        kane = scaled_kane_coefficients(A_kane_cm, B_kane_cm, sc)
+        E_g_eV_val = sc.E_g if sc.E_g > 0.0 else 1.12
+        E_g_hat_val = scaled_E_g(E_g_eV_val, sc)
+        A_kane_hat = fem.Constant(
+            msh, PETSc.ScalarType(kane["A_kane_hat"])
+        )
+        B_kane_hat = fem.Constant(
+            msh, PETSc.ScalarType(kane["B_kane_hat"])
+        )
+        E_g_hat = fem.Constant(msh, PETSc.ScalarType(E_g_hat_val))
+        G_BBT = bbt_rate(F_hat_mag, E_g_hat, A_kane_hat, B_kane_hat)
+        R = R - G_BBT
 
     rho_hat = p_hat - n_hat + N_hat_fn
 
@@ -610,9 +681,38 @@ def build_dd_block_residual_mr(
     n1 = ni_hat_sub * _math.exp(E_t_over_Vt)
     p1 = ni_hat_sub * _math.exp(-E_t_over_Vt)
     np_minus_nieq_sub = n_hat_sub * p_hat_sub - ni_hat_sub * ni_hat_sub
-    R = np_minus_nieq_sub / (
+    R_base_mr = np_minus_nieq_sub / (
         tau_p * (n_hat_sub + n1) + tau_n * (p_hat_sub + p1)
     )
+    # M16.6: shared L_0-scaled field magnitude on the parent mesh
+    # (psi lives there). See the docstring of the single-region path
+    # above for the dimensionless-ratio rationale.
+    tun_cfg_mr = recomb_cfg or {}
+    bbt_on_mr = bool(tun_cfg_mr.get("bbt", False))
+    tat_on_mr = bool(tun_cfg_mr.get("tat", False))
+    if bbt_on_mr or tat_on_mr:
+        eps_F_const_mr = fem.Constant(msh, PETSc.ScalarType(1.0e-30))
+        L0_const_mr = fem.Constant(msh, PETSc.ScalarType(sc.L0))
+        F_hat_mag_mr = L0_const_mr * ufl.sqrt(
+            ufl.dot(ufl.grad(psi), ufl.grad(psi)) + eps_F_const_mr
+        )
+    else:
+        F_hat_mag_mr = None
+
+    if tat_on_mr:
+        from .recombination import hurkx_gamma, scaled_hurkx_F_kT
+        F_kT_cm_mr = float(tun_cfg_mr.get("F_kT", 1.4e7))
+        alpha_mr = float(tun_cfg_mr.get("alpha", 2.0))
+        F_kT_hat_val_mr = scaled_hurkx_F_kT(F_kT_cm_mr, sc)
+        F_kT_hat_mr = fem.Constant(
+            submesh, PETSc.ScalarType(F_kT_hat_val_mr)
+        )
+        Gamma_TAT_mr = hurkx_gamma(F_hat_mag_mr, F_kT_hat_mr, alpha_mr)
+        R_SRH_mr = (1.0 + Gamma_TAT_mr) * R_base_mr
+    else:
+        R_SRH_mr = R_base_mr
+
+    R = R_SRH_mr
     if recomb_cfg is not None and recomb_cfg.get("auger", False):
         # M16.3 Auger inline. Submesh Constants because the continuity
         # blocks integrate on the semiconductor submesh; the Auger
@@ -626,6 +726,33 @@ def build_dd_block_residual_mr(
         R = R + (
             C_n_hat_sub * n_hat_sub + C_p_hat_sub * p_hat_sub
         ) * np_minus_nieq_sub
+
+    if bbt_on_mr:
+        from .recombination import (
+            bbt_rate,
+            scaled_E_g,
+            scaled_kane_coefficients,
+        )
+        A_kane_cm_mr = float(tun_cfg_mr.get("A_kane", 4.0e14))
+        B_kane_cm_mr = float(tun_cfg_mr.get("B_kane", 1.9e7))
+        kane_mr = scaled_kane_coefficients(
+            A_kane_cm_mr, B_kane_cm_mr, sc
+        )
+        E_g_eV_val_mr = sc.E_g if sc.E_g > 0.0 else 1.12
+        E_g_hat_val_mr = scaled_E_g(E_g_eV_val_mr, sc)
+        A_kane_hat_mr = fem.Constant(
+            submesh, PETSc.ScalarType(kane_mr["A_kane_hat"])
+        )
+        B_kane_hat_mr = fem.Constant(
+            submesh, PETSc.ScalarType(kane_mr["B_kane_hat"])
+        )
+        E_g_hat_mr = fem.Constant(
+            submesh, PETSc.ScalarType(E_g_hat_val_mr)
+        )
+        G_BBT_mr = bbt_rate(
+            F_hat_mag_mr, E_g_hat_mr, A_kane_hat_mr, B_kane_hat_mr
+        )
+        R = R - G_BBT_mr
 
     F_psi = (
         L_D2 * eps_r_ufl * ufl.inner(ufl.grad(psi), ufl.grad(v_psi)) * dx_parent

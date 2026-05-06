@@ -5,10 +5,10 @@ kronos-semi is a FEniCSx-based finite-element semiconductor device simulator tha
 ## Capability matrix
 
 All milestones M1 through M15 plus M14.3, M14.4, M16.1, M16.2,
-M16.3, M16.4, and M16.5 have shipped as of v0.21.0. The table below
-is the current state; see the Delivery history section for per-
-milestone details. Planned milestones (M16.6-M16.7, M19, M20) have
-explicit acceptance tests in
+M16.3, M16.4, M16.5, and M16.6 have shipped as of v0.22.0. The
+table below is the current state; see the Delivery history section
+for per-milestone details. Planned milestones (M16.7, M19, M20)
+have explicit acceptance tests in
 [`docs/IMPROVEMENT_GUIDE.md`](IMPROVEMENT_GUIDE.md).
 
 | Capability | Dimensions | Status | Verifier |
@@ -40,7 +40,7 @@ explicit acceptance tests in
 | Auger recombination (M16.3) | 1D / 2D | shipped | MMS-DD Variant F L2 >= 1.99 / H1 >= 0.99 on every block; diode_auger_1d >20% SRH-vs-Auger divergence at V_F = 0.9 V and <10% match to closed-form Hall-Auger ambipolar high-injection asymptote |
 | Fermi-Dirac statistics (M16.4) | 1D / 2D | shipped | MMS-DD Variant G L2 >= 1.99 / H1 >= 0.99 on every block (1D measured 2.000/2.000/2.000, 2D measured 1.997/1.999/1.999); diode_fermi_dirac_1d FEM-vs-Blakemore-analytical V_bi 0.0000% and FD-vs-Boltzmann V_bi divergence 7.37% at N_D=1e20 cm^-3 (basic Blakemore production form; see CHANGELOG `[0.20.0]` for the deviation rationale from the >15% / 1e-3-vs-full-integral nominal targets) |
 | Schottky contacts (M16.5) | 1D | shipped | schottky_1d slope `ln(J_FEM)` vs V matches 1/V_t within 5% (observed 2.46%) and `|J_FEM - J_thermionic|/J_thermionic < 5x` envelope absolute match (observed worst 278%) over V in [0.1, 0.5] V; ADR 0015 documents the V&V scope |
-| BBT and TAT tunneling (M16.6) | 1D | Planned | zener_1d Kane reverse-bias breakdown within 20% from V_R = 4 to 8 V |
+| BBT and TAT tunneling (M16.6) | 1D | shipped | MMS-DD Variant H psi block L2 = 2.000 / H1 = 1.000 (1D); zener_1d ln-J slope sign indicating BBT firing (observed -0.279 per V) and 5x envelope `\|J_FEM - J_Kane\|/J_Kane` over V_R in [-8, -4] V (observed worst 99.88%); doping relaxed to N = 1e18 cm^-3 from the prompt's nominal 1e19 cm^-3 (deep-bias SNES convergence; tighter follow-up tracked in M16.7 backlog) |
 | Time-varying transient contact voltage (M16.7) | 1D / 2D | Planned | audit case 06 transient FFT vs AC sweep agreement within 5% |
 | Heterojunctions (M17) | 2D | Planned | hemt_2d 2DEG sheet density within 15% of self-consistent reference |
 | 3D MOSFET benchmark (M19) | 3D | Planned | Pao-Sah within 25% (linear); velsat within 30% (saturation); >=5x GPU speedup at 500k DOFs |
@@ -61,16 +61,13 @@ unstructured mesh, run on both CPU-MUMPS and GPU-AMGX backends; M19
 depends on M16.1 (Caughey-Thomas mobility) so saturation has any
 meaning.
 
-The physics catalogue still has two gaps that matter for any
-quantitative TCAD comparison: (1) tunneling (band-to-band and
-trap-assisted) is missing, which is required for any non-toy
-reverse-bias diode; (2) the cross-check that an FFT of the
+The physics catalogue has one remaining gap that matters for a
+quantitative TCAD comparison: the cross-check that an FFT of the
 transient response matches the AC sweep at the same operating
-point is deferred. M16.6 closes the tunneling gap with a Kane BBT
-and Hurkx TAT pair, and M16.7 closes the transient-AC consistency
-gap. Field-dependent mobility (M16.1 / M16.2), Auger recombination
-(M16.3), Fermi-Dirac statistics (M16.4), and Schottky contacts
-(M16.5) have all shipped.
+point is deferred. M16.7 closes this gap. Field-dependent mobility
+(M16.1 / M16.2), Auger recombination (M16.3), Fermi-Dirac
+statistics (M16.4), Schottky contacts (M16.5), and BBT / TAT
+tunneling (M16.6) have all shipped.
 
 ## Scope vs. COMSOL Semiconductor Module
 

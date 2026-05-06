@@ -671,6 +671,35 @@ in weak form:
   Gated at L^2 >= 1.99 / H^1 >= 0.99 per the M16.4 acceptance gate
   in `docs/IMPROVEMENT_GUIDE.md` § M16.4; pytest module
   `tests/fem/test_mms_fermi_dirac.py`.
+- **Variant H (BBT and TAT tunneling, M16.6).** Variant C
+  electronics plus the Kane band-to-band generation
+  `G_BBT = A_kane |E|^2 / sqrt(E_g) exp(-B_kane E_g^(3/2) / |E|)`
+  and the Hurkx trap-assisted enhancement
+  `R_SRH -> (1 + Gamma(F)) R_SRH`,
+  `Gamma(F) = 2 sqrt(3 pi) (F / F_kT)^(alpha-1) exp((F / F_kT)^2)`
+  (see `semi/physics/recombination.py`; both kernels evaluate the
+  L_0-scaled field magnitude `L_0 |grad(psi_hat)|`). The MMS
+  engineers `MMS_H_A_KANE_FOR_FORM = 3.5e-11`,
+  `MMS_H_B_KANE_FOR_FORM = 0.5`, `MMS_H_F_KT_FOR_FORM = 20.0`,
+  `MMS_H_ALPHA = 2.0`, and `MMS_H_E_G_HAT_FOR_FORM = 1.0` so each
+  kernel shifts the recombination rate by O(0.1) of `R_SRH` at the
+  manufactured peak (peak `F_hat = pi`). The reverse-engineered
+  JSON-side coefficients (`A_kane` in cm^-1 s^-1 V^-2,
+  `B_kane` in V/cm, `F_kT` in V/cm) plus a written
+  `sc.E_g = MMS_H_E_G_HAT_FOR_FORM * sc.V0` cause the production
+  form's `bbt_rate` / `hurkx_gamma` calls to evaluate the identical
+  closed form. Variant H gates the psi block at the textbook P1
+  rates L^2 >= 1.99, H^1 >= 0.99; the phi_n / phi_p blocks live
+  near the discretization noise floor (the BBT term is decoupled
+  from the carrier densities, so the continuity-row residual scale
+  is dominated by `L_0^2 mu_hat n_hat ~ 1e-18`) and are checked
+  for finite, non-negative errors only. The 2D test is a smoke
+  test (the 2D residual scales with `L_0^2 ~ 4e-12` and lands
+  below machine precision), so the kernel physics is verified at
+  the 1D rate gate plus the closed-form numpy unit tests
+  (`tests/test_recombination.py`) and the `zener_1d` Kane
+  analytical benchmark (`benchmarks/zener_1d/`). Pytest module
+  `tests/fem/test_mms_tunneling.py`.
 
 Finest-pair rates (N = 320 for 1D, N = 64 for 2D), default
 amplitudes (A_psi, A_n, A_p) = (0.5, 0.3, -0.3):
@@ -715,6 +744,10 @@ amplitudes (A_psi, A_n, A_p) = (0.5, 0.3, -0.3):
 | 2D G (M16.4)         | psi    | 1.997    | 0.999    |
 | 2D G (M16.4)         | phi_n  | 1.999    | 1.000    |
 | 2D G (M16.4)         | phi_p  | 1.999    | 1.000    |
+| 1D H (linear, M16.6) | psi    | 2.000    | 1.000    |
+| 1D H (linear, M16.6) | phi_n  | (noise)  | (noise)  |
+| 1D H (linear, M16.6) | phi_p  | (noise)  | (noise)  |
+| 2D H (M16.6, smoke)  | psi    | (smoke)  | (smoke)  |
 
 Every gated rate clears the L^2 >= 1.75 / H^1 >= 0.80 floor with
 >= 0.19 of headroom (Variants A/B/C), or the L^2 >= 1.99 / H^1 >= 0.99
@@ -729,6 +762,23 @@ A/B/C) so the finest-pair rate clears 1.99 cleanly; the [16, 32,
 boundary-layer effects. Variants E, F, and G adopt the same
 N-sequence overrides Variant D pioneered. Variant F rates marked
 (CI) are filled in from the docker-fem CI run in the M16.3 PR.
+
+Variant H (M16.6 BBT and TAT tunneling) is the first MMS variant
+where the textbook L^2 >= 1.99 rate cannot be enforced on every
+block. The Kane BBT kernel evaluates the field magnitude
+`L_0 |grad(psi_hat)|` directly and contributes to both continuity
+rows without depending on the carrier densities; the resulting
+phi-block residual scale is set by the diffusion coefficient
+`L_0^2 mu_hat n_hat ~ 1e-18` and lands below the SNES atol floor.
+Variant H therefore gates the psi block at the textbook rate and
+checks finite, non-negative discretization errors on the phi
+blocks; the 2D Variant H is a smoke test (2D integration area
+shrinks the residual to ~1e-15 before Newton can iterate). The
+Kane and Hurkx physics are independently verified by the
+closed-form NumPy unit tests in `tests/test_recombination.py` and
+by the `benchmarks/zener_1d` Kane analytical match within 20 %
+from V_R = 4 V to 8 V (M16.6 acceptance test in
+`docs/IMPROVEMENT_GUIDE.md` § M16.6).
 
 ### 5.5 MMS for multi-region Poisson (M6: 2D MOS capacitor)
 

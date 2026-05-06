@@ -55,6 +55,12 @@ class Scaling:
     # gate paths never read these.
     m_n_star: float | None = None
     m_p_star: float | None = None
+    # M16.6: reference-material band gap in eV. Consumed by the Kane
+    # band-to-band tunneling kernel (semi/physics/recombination.py
+    # `bbt_rate`); insulators and tunneling-off solves never read it.
+    # Defaults to 0.0 to keep pre-M16.6 callers (and direct Scaling
+    # constructions in tests) unaffected.
+    E_g: float = 0.0
 
     @property
     def V0(self) -> float:
@@ -197,6 +203,7 @@ def make_scaling_from_config(cfg: dict, reference_material) -> Scaling:
         N_C=N_C, N_V=N_V,
         m_n_star=reference_material.m_n_star,
         m_p_star=reference_material.m_p_star,
+        E_g=reference_material.Eg,
     )
 
 

@@ -181,3 +181,208 @@ def scaled_auger_C(C_si, C0, t0):
     before invoking this helper; see ADR 0002.
     """
     return float(C_si) * float(C0) ** 2 * float(t0)
+
+
+# ---------------------------------------------------------------------------
+# M16.6 Kane band-to-band tunneling and Hurkx trap-assisted tunneling.
+# ---------------------------------------------------------------------------
+#
+# Kane band-to-band tunneling (Kane 1959; Sze 3rd ed section 8.4).
+#
+# Dimensional form:
+#
+#     G_BBT = A_kane * |E|^2 / sqrt(E_g)
+#                  * exp(-B_kane * E_g^(3/2) / |E|)
+#
+# where A_kane has units cm^-1 s^-1 V^-2 (Si default 4e14), B_kane
+# has units V/cm (Si default 1.9e7), |E| is the magnitude of the
+# local electric field in V/cm, and E_g is the band gap in eV. This
+# is a pure generation term: under the R = U - G convention used in
+# semi/physics/drift_diffusion.py (R contributes positively to the
+# electron continuity row and negatively to the hole continuity row),
+# BBT contributes -G_BBT to R so that the same scalar appears with
+# opposite signs on the two continuity rows (one tunneled
+# electron-hole pair appears).
+#
+# Hurkx trap-assisted tunneling (Hurkx 1992).
+#
+# Dimensional form:
+#
+#     R_TAT = (1 + Gamma(F)) * R_SRH
+#     Gamma(F) = 2 sqrt(3 pi) * (F / F_kT)^(alpha - 1)
+#                              * exp((F / F_kT)^2)
+#
+# where F is the local field magnitude, F_kT the Hurkx characteristic
+# field (Si default 1.4e7 V/cm), and alpha the Hurkx exponent (Si
+# default 2.0). Gamma vanishes as F -> 0 (alpha > 1) so the TAT
+# branch is bit-identical to v0.21.0 in the low-field bulk; it grows
+# super-exponentially in the high-field depletion region where
+# trap-assisted tunneling enhances SRH.
+#
+# Scaled form. The form builder in semi/physics/drift_diffusion.py
+# evaluates the field magnitude as |grad(psi_hat)|, which is
+# dimensionless (psi_hat is V_t-scaled and the gradient is taken in
+# the L_0-scaled coordinate). The dimensional field is then
+#
+#     |E_phys|_V/m = (V_0 / L_0) * |grad(psi_hat)|
+#
+# To keep the UFL helpers free of unit baggage we expose
+# `scaled_kane_coefficients` / `scaled_hurkx_F_kT` that produce the
+# dimensionless ratios consumed by the UFL helpers. The closed-form
+# closures below match the manufactured-source evaluations in
+# semi/verification/mms_dd.py Variant H exactly.
+
+
+def bbt_rate(E_field_magnitude, E_g_hat, A_kane_hat, B_kane_hat):
+    """
+    UFL expression for the scaled Kane band-to-band tunneling
+    generation rate
+
+        G_hat = A_kane_hat * |E_hat|^2 / sqrt(E_g_hat)
+                         * exp(-B_kane_hat * E_g_hat^(3/2) / |E_hat|)
+
+    Sign convention: positive (this is a generation term; the caller
+    subtracts it from the recombination R when assembling the
+    continuity rows).
+
+    Parameters
+    ----------
+    E_field_magnitude : UFL expression
+        Scaled field magnitude (|grad(psi_hat)|).
+    E_g_hat : UFL expression or float
+        Band gap in scaled units; see :func:`scaled_E_g`.
+    A_kane_hat, B_kane_hat : UFL expression or float
+        Dimensionless Kane coefficients; see
+        :func:`scaled_kane_coefficients`.
+
+    Returns
+    -------
+    UFL expression
+        Scaled BBT generation rate (per C0/t0).
+    """
+    import ufl
+    return (
+        ufl.as_ufl(1.0)
+        * A_kane_hat
+        * E_field_magnitude * E_field_magnitude
+        / ufl.sqrt(E_g_hat)
+        * ufl.exp(
+            -B_kane_hat * (E_g_hat ** 1.5) / E_field_magnitude
+        )
+    )
+
+
+def bbt_rate_np(E_field_magnitude, E_g, A_kane, B_kane):
+    """
+    NumPy counterpart of :func:`bbt_rate`.
+
+    Accepts any consistent unit system. With JSON-contract inputs
+    (`|E|` in V/cm, `E_g` in eV, `A_kane` in cm^-1 s^-1 V^-2,
+    `B_kane` in V/cm), the return value is in cm^-3 s^-1.
+    """
+    return (
+        A_kane
+        * E_field_magnitude ** 2
+        / np.sqrt(E_g)
+        * np.exp(-B_kane * (E_g ** 1.5) / E_field_magnitude)
+    )
+
+
+def hurkx_gamma(F, F_kT_hat, alpha):
+    """
+    UFL expression for the Hurkx field-enhancement factor Gamma(F)
+
+        Gamma = 2 sqrt(3 pi) * (F / F_kT_hat)^(alpha - 1)
+                             * exp((F / F_kT_hat)^2)
+
+    Returns a dimensionless UFL expression; the caller multiplies the
+    SRH rate by `(1 + Gamma)` to enable trap-assisted tunneling.
+
+    Parameters
+    ----------
+    F : UFL expression
+        Scaled field magnitude (|grad(psi_hat)|).
+    F_kT_hat : UFL expression or float
+        Hurkx characteristic field in scaled units; see
+        :func:`scaled_hurkx_F_kT`.
+    alpha : float
+        Hurkx exponent (typically 2.0).
+    """
+    import ufl
+    PREF = 2.0 * math.sqrt(3.0 * math.pi)
+    ratio = F / F_kT_hat
+    return (
+        ufl.as_ufl(PREF)
+        * (ratio ** (alpha - 1.0))
+        * ufl.exp(ratio * ratio)
+    )
+
+
+def hurkx_gamma_np(F, F_kT, alpha):
+    """
+    NumPy counterpart of :func:`hurkx_gamma`. Accepts any consistent
+    unit system; with JSON-contract inputs (`F` and `F_kT` both in
+    V/cm) the return value is dimensionless.
+    """
+    pref = 2.0 * math.sqrt(3.0 * math.pi)
+    ratio = F / F_kT
+    return pref * (ratio ** (alpha - 1.0)) * np.exp(ratio * ratio)
+
+
+def scaled_kane_coefficients(A_kane_cm, B_kane_cm, sc):
+    """
+    Convert the JSON Kane coefficients (cm-based units) into the
+    dimensionless ratios consumed by :func:`bbt_rate`.
+
+    Substituting `|E_phys| = (V_0 / L_0) * |grad(psi_hat)|` and
+    `E_g_phys = V_0 * E_g_hat` into the dimensional Kane formula and
+    dividing by `C_0 / t_0` yields
+
+        A_kane_hat = A_SI * V_0^(3/2) * t_0 / (L_0^2 * C_0)
+        B_kane_hat = B_SI * L_0 * sqrt(V_0)
+
+    with SI conversions `A_SI [m^-1 s^-1 V^-2] = A_cm * 100` and
+    `B_SI [V/m] = B_cm * 100`.
+
+    Parameters
+    ----------
+    A_kane_cm : float
+        Kane prefactor in cm^-1 s^-1 V^-2 (Si default 4.0e14).
+    B_kane_cm : float
+        Kane exponent coefficient in V/cm (Si default 1.9e7).
+    sc : semi.scaling.Scaling
+        Scaling object; provides V0, L0, C0, t0.
+
+    Returns
+    -------
+    dict
+        ``{"A_kane_hat": ..., "B_kane_hat": ...}``.
+    """
+    A_SI = float(A_kane_cm) * 100.0
+    B_SI = float(B_kane_cm) * 100.0
+    A_hat = A_SI * (sc.V0 ** 1.5) * sc.t0 / (sc.L0 ** 2 * sc.C0)
+    B_hat = B_SI * sc.L0 * math.sqrt(sc.V0)
+    return {"A_kane_hat": A_hat, "B_kane_hat": B_hat}
+
+
+def scaled_hurkx_F_kT(F_kT_cm, sc):
+    """
+    Convert the JSON Hurkx characteristic field (V/cm) into the
+    dimensionless ratio consumed by :func:`hurkx_gamma`. The scaled
+    field magnitude is `|grad(psi_hat)|` (dimensionless), which
+    corresponds to a physical field `(V_0 / L_0) * |grad(psi_hat)|`
+    in V/m. Setting `F_kT_hat = F_kT_SI * L_0 / V_0` makes the
+    `(F / F_kT_hat)` ratio in the Hurkx form dimensionless.
+    """
+    F_SI = float(F_kT_cm) * 100.0
+    return F_SI * sc.L0 / sc.V0
+
+
+def scaled_E_g(E_g_eV, sc):
+    """
+    Convert the band gap (eV) into the scaled-energy units consumed
+    by :func:`bbt_rate`: `E_g_hat = E_g_eV / V_0` (V_0 is the
+    thermal voltage in V; the eV/V identity makes this a pure
+    division).
+    """
+    return float(E_g_eV) / sc.V0

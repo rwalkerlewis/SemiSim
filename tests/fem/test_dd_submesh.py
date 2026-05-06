@@ -299,3 +299,131 @@ def test_mr_dd_auger_branch_assembles():
         recomb_cfg={"auger": True, "C_n": 1.0e-29, "C_p": 1.0e-29},
     )
     assert len(F_list) == 3
+
+
+def test_mr_dd_bbt_branch_assembles():
+    """
+    M16.6: the multiregion form builder accepts `recomb_cfg` with
+    `bbt=True` and emits a residual that subtracts the Kane
+    band-to-band generation rate from R on the submesh integration
+    domain.
+
+    The single-region path is exercised end-to-end by the zener_1d
+    benchmark and Variant H of MMS-DD; the MR counterpart has no
+    benchmark today (BBT under MOSCAP / MOSFET geometry is unusual),
+    so this assembly smoke test pins the M16.6 inline at the
+    multiregion path against regressions.
+    """
+    from semi.physics.drift_diffusion import build_dd_block_residual_mr
+
+    spaces, sc, Si, cell_tags, N_hat_fn, _L, _N = _build_1d_uniform_problem()
+
+    F_list = build_dd_block_residual_mr(
+        spaces, N_hat_fn, sc, Si.epsilon_r,
+        Si.mu_n / sc.mu0, Si.mu_p / sc.mu0,
+        1.0e-7 / sc.t0, 1.0e-7 / sc.t0,
+        cell_tags, semi_tag=1,
+        recomb_cfg={"bbt": True, "A_kane": 4.0e14, "B_kane": 1.9e7},
+    )
+    assert len(F_list) == 3
+
+
+def test_mr_dd_tat_branch_assembles():
+    """
+    M16.6: the multiregion form builder accepts `recomb_cfg` with
+    `tat=True` and multiplies the SRH rate by the Hurkx field-
+    enhancement factor (1 + Gamma_TAT(F)) on the submesh integration
+    domain.
+    """
+    from semi.physics.drift_diffusion import build_dd_block_residual_mr
+
+    spaces, sc, Si, cell_tags, N_hat_fn, _L, _N = _build_1d_uniform_problem()
+
+    F_list = build_dd_block_residual_mr(
+        spaces, N_hat_fn, sc, Si.epsilon_r,
+        Si.mu_n / sc.mu0, Si.mu_p / sc.mu0,
+        1.0e-7 / sc.t0, 1.0e-7 / sc.t0,
+        cell_tags, semi_tag=1,
+        recomb_cfg={"tat": True, "F_kT": 1.4e7, "alpha": 2.0},
+    )
+    assert len(F_list) == 3
+
+
+def test_mr_dd_bbt_and_tat_branches_assemble():
+    """
+    Both BBT and TAT enabled simultaneously; exercises the shared
+    F_hat_mag_mr field-magnitude precomputation that gates both
+    kernels off `if bbt_on_mr or tat_on_mr`.
+    """
+    from semi.physics.drift_diffusion import build_dd_block_residual_mr
+
+    spaces, sc, Si, cell_tags, N_hat_fn, _L, _N = _build_1d_uniform_problem()
+
+    F_list = build_dd_block_residual_mr(
+        spaces, N_hat_fn, sc, Si.epsilon_r,
+        Si.mu_n / sc.mu0, Si.mu_p / sc.mu0,
+        1.0e-7 / sc.t0, 1.0e-7 / sc.t0,
+        cell_tags, semi_tag=1,
+        recomb_cfg={
+            "bbt": True, "A_kane": 4.0e14, "B_kane": 1.9e7,
+            "tat": True, "F_kT": 1.4e7, "alpha": 2.0,
+        },
+    )
+    assert len(F_list) == 3
+
+
+def test_mr_dd_schottky_branch_assembles():
+    """
+    M16.5: the multiregion form builder accepts a non-empty
+    `schottky_facets` list and adds the thermionic-emission Robin
+    surface form to the (phi_n, phi_p) continuity rows.
+
+    Schottky on the MR path is unusual (the MOSCAP / MOSFET 2D
+    devices have no metal-semiconductor contacts on the silicon
+    submesh), but the API surface accepts it for completeness and
+    threads phi_n / phi_p through the entity_maps mechanism on the
+    parent mesh's facet measure. This smoke test pins that surface-
+    integral wiring against regressions.
+    """
+    from dolfinx import mesh as dmesh
+
+    from semi.materials import get_material
+    from semi.physics.drift_diffusion import build_dd_block_residual_mr
+
+    spaces, sc, Si, cell_tags, N_hat_fn, L, _N = _build_1d_uniform_problem()
+    msh = spaces.parent_mesh
+    fdim = msh.topology.dim - 1
+    msh.topology.create_connectivity(fdim, msh.topology.dim)
+    left = dmesh.locate_entities_boundary(
+        msh, fdim, lambda x: np.isclose(x[0], 0.0),
+    )
+    right = dmesh.locate_entities_boundary(
+        msh, fdim, lambda x: np.isclose(x[0], L),
+    )
+    facets = np.concatenate([left, right]).astype(np.int32)
+    values = np.concatenate([
+        np.full(len(left), 1, dtype=np.int32),
+        np.full(len(right), 2, dtype=np.int32),
+    ])
+    order = np.argsort(facets)
+    facet_tags = dmesh.meshtags(msh, fdim, facets[order], values[order])
+
+    ref_mat = get_material("Si")
+    # The Schottky thermionic-emission Robin BC reads sc.v_n_thermal /
+    # sc.v_p_thermal, which require the effective masses on Scaling.
+    # The bare _build_1d_uniform_problem fixture omits them; populate
+    # from the reference material so the surface form can build.
+    sc.m_n_star = ref_mat.m_n_star
+    sc.m_p_star = ref_mat.m_p_star
+
+    F_list = build_dd_block_residual_mr(
+        spaces, N_hat_fn, sc, Si.epsilon_r,
+        Si.mu_n / sc.mu0, Si.mu_p / sc.mu0,
+        1.0e-7 / sc.t0, 1.0e-7 / sc.t0,
+        cell_tags, semi_tag=1,
+        facet_tags=facet_tags,
+        schottky_facets=[(1, {"barrier_height_eV": 0.85, "V_applied": 0.0})],
+        ref_mat=ref_mat,
+        statistics_cfg={"statistics": "boltzmann"},
+    )
+    assert len(F_list) == 3

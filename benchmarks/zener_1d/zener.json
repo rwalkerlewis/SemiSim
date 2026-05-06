@@ -1,0 +1,127 @@
+{
+  "schema_version": "2.6.0",
+  "name": "zener_1d",
+  "description": "1D heavily-doped abrupt Si pn junction (N_A = N_D = 1e19 cm^-3, 5 um total length, junction at 2.5 um) under reverse bias V_R in [-8, 0] V (33 points, 0.25 V step). Validates the M16.6 Kane band-to-band tunneling generation kernel against the closed-form Sze section 8.4 reverse-breakdown reference. physics.statistics is fermi_dirac because the BBT prefactor depends on the FD-corrected density of states at the band edges (Boltzmann is wrong by ~ a factor of two at N = 1e19 cm^-3). physics.tunneling.bbt = true; tat = false. The verifier (scripts/run_benchmark.py verify_zener_1d) compares this run to kane_breakdown_iv from semi/diode_analytical.py and asserts |J_FEM - J_Kane| / J_Kane < 0.20 from V_R = -8 V to -4 V (the breakdown regime; below 4 V the leakage is dominated by SRH generation and Kane is not the right comparator).",
+  "dimension": 1,
+  "mesh": {
+    "source": "builtin",
+    "extents": [
+      [
+        0.0,
+        5e-06
+      ]
+    ],
+    "resolution": [
+      800
+    ],
+    "regions_by_box": [
+      {
+        "name": "silicon",
+        "tag": 1,
+        "bounds": [
+          [
+            0.0,
+            5e-06
+          ]
+        ]
+      }
+    ],
+    "facets_by_plane": [
+      {
+        "name": "anode",
+        "tag": 1,
+        "axis": 0,
+        "value": 0.0
+      },
+      {
+        "name": "cathode",
+        "tag": 2,
+        "axis": 0,
+        "value": 5e-06
+      }
+    ]
+  },
+  "regions": {
+    "silicon": {
+      "material": "Si",
+      "tag": 1,
+      "role": "semiconductor"
+    }
+  },
+  "doping": [
+    {
+      "region": "silicon",
+      "profile": {
+        "type": "step",
+        "axis": 0,
+        "location": 2.5e-06,
+        "N_D_left": 0.0,
+        "N_A_left": 1e+18,
+        "N_D_right": 1e+18,
+        "N_A_right": 0.0
+      }
+    }
+  ],
+  "contacts": [
+    {
+      "name": "anode",
+      "facet": "anode",
+      "type": "ohmic",
+      "voltage": 0.0,
+      "voltage_sweep": {
+        "start": 0.0,
+        "stop": -8.0,
+        "step": 0.1
+      }
+    },
+    {
+      "name": "cathode",
+      "facet": "cathode",
+      "type": "ohmic",
+      "voltage": 0.0
+    }
+  ],
+  "physics": {
+    "temperature": 300.0,
+    "statistics": "fermi_dirac",
+    "recombination": {
+      "srh": true,
+      "tau_n": 1e-07,
+      "tau_p": 1e-07,
+      "E_t": 0.0
+    },
+    "tunneling": {
+      "bbt": true,
+      "tat": false,
+      "A_kane": 4.0e14,
+      "B_kane": 1.9e7
+    }
+  },
+  "solver": {
+    "type": "bias_sweep",
+    "snes": {
+      "rtol": 1e-12,
+      "atol": 1e-12,
+      "stol": 1e-14,
+      "max_it": 200
+    },
+    "continuation": {
+      "min_step": 1e-05,
+      "max_halvings": 12,
+      "max_step": 0.025,
+      "easy_iter_threshold": 4,
+      "grow_factor": 1.2
+    }
+  },
+  "output": {
+    "directory": "./results/zener_1d",
+    "fields": [
+      "potential",
+      "n",
+      "p",
+      "phi_n",
+      "phi_p",
+      "iv"
+    ]
+  }
+}

@@ -407,3 +407,197 @@ def test_auger_rate_scaled_form_consistency():
         n_hat, p_hat, n_i_hat, C_n_hat, C_p_hat
     )
     assert R_hat_direct == pytest.approx(R_hat_via_scaling, rel=1.0e-12)
+
+
+# ---------------------------------------------------------------------------
+# M16.6 Kane band-to-band tunneling and Hurkx trap-assisted tunneling
+# pure-Python tests.
+# ---------------------------------------------------------------------------
+
+
+# Si Kane defaults per Sze section 8.4 (cm-based JSON units).
+A_KANE_CM = 4.0e14                  # cm^-1 s^-1 V^-2
+B_KANE_CM = 1.9e7                   # V/cm
+E_G_SI_eV = 1.12                    # Si band gap at 300 K
+F_KT_CM = 1.4e7                     # V/cm (Hurkx 1992)
+ALPHA_HURKX = 2.0
+
+
+def test_bbt_rate_zero_field_limit():
+    """As |E| -> 0, the exp(-B E_g^(3/2) / |E|) factor drives G to zero
+    faster than |E|^2 grows; the pointwise limit is zero. Numerically
+    checked at |E| = 1e3 V/cm where the exponent argument is huge."""
+    G = recombination.bbt_rate_np(
+        1.0e3, E_G_SI_eV, A_KANE_CM, B_KANE_CM
+    )
+    # At 1e3 V/cm the exponent is -1.9e7 * 1.12^1.5 / 1e3 ~ -2.25e4;
+    # exp(-2.25e4) is well below double precision, so G is exact zero.
+    assert G == 0.0
+
+
+def test_bbt_rate_strong_field_textbook_match():
+    """At |E| = 1.5e6 V/cm and E_g = 1.12 eV, the closed form returns a
+    rate within 1 % of the manual textbook value (Sze section 8.4)."""
+    F = 1.5e6                       # V/cm
+    G = recombination.bbt_rate_np(F, E_G_SI_eV, A_KANE_CM, B_KANE_CM)
+    # Manual: G = A * F^2 / sqrt(E_g) * exp(-B * E_g^1.5 / F)
+    expo = -B_KANE_CM * (E_G_SI_eV ** 1.5) / F
+    G_manual = A_KANE_CM * F ** 2 / np.sqrt(E_G_SI_eV) * np.exp(expo)
+    assert G == pytest.approx(G_manual, rel=1.0e-2)
+    # Sanity: the rate is finite, non-zero, and astronomically small
+    # at 1.5e6 V/cm (well below breakdown) -- the exponent ~ -15.
+    assert G > 0.0
+
+
+def test_bbt_rate_band_gap_dependence():
+    """Doubling E_g drives G_BBT down by orders of magnitude through
+    the exp(-B * E_g^(3/2) / |E|) factor."""
+    F = 2.0e6                       # V/cm, healthy breakdown field
+    G_si = recombination.bbt_rate_np(F, 1.12, A_KANE_CM, B_KANE_CM)
+    G_2x = recombination.bbt_rate_np(F, 2.24, A_KANE_CM, B_KANE_CM)
+    # Si E_g -> 2.24 eV at the same field: the exp factor shifts by
+    # exp(-B * (2.24^1.5 - 1.12^1.5) / F), which is enormous.
+    assert G_2x < G_si
+    assert G_2x / G_si < 1.0e-6
+
+
+def test_bbt_rate_monotone_in_field():
+    """G_BBT is monotonically increasing in |E| in the breakdown regime."""
+    Fs = np.array([1.0e6, 1.5e6, 2.0e6, 3.0e6])
+    Gs = recombination.bbt_rate_np(
+        Fs, E_G_SI_eV, A_KANE_CM, B_KANE_CM
+    )
+    # Strict monotone (the exponential dominates the |E|^2 prefactor).
+    for i in range(1, len(Gs)):
+        assert Gs[i] > Gs[i - 1]
+
+
+def test_hurkx_gamma_zero_field_limit():
+    """Gamma(F=0) = 0 (alpha > 1; the (F/F_kT)^(alpha-1) factor
+    vanishes faster than exp grows from 1)."""
+    G = recombination.hurkx_gamma_np(0.0, F_KT_CM, ALPHA_HURKX)
+    assert G == 0.0
+
+
+def test_hurkx_gamma_low_field_small():
+    """Below the characteristic field, Gamma is small (sub-unity);
+    Hurkx enhancement is irrelevant in low-field bulk."""
+    G = recombination.hurkx_gamma_np(
+        F_KT_CM * 1.0e-2, F_KT_CM, ALPHA_HURKX
+    )
+    assert G < 0.5
+
+
+def test_hurkx_gamma_characteristic_field_crossover():
+    """At F = F_kT, Gamma is order unity (an order of magnitude
+    bracket; the precise prefactor depends on the Hurkx convention)."""
+    G = recombination.hurkx_gamma_np(F_KT_CM, F_KT_CM, ALPHA_HURKX)
+    # 2 sqrt(3 pi) * 1 * exp(1) ~ 16.7 with the prompt's convention;
+    # either way the value is non-trivially nonzero and bounded.
+    assert 0.5 < G < 100.0
+
+
+def test_hurkx_gamma_super_exponential_in_strong_field():
+    """At F = 3 F_kT, Gamma >> 1 (super-exponential blow-up; this is
+    why Hurkx dominates SRH in the depletion peak field)."""
+    G = recombination.hurkx_gamma_np(
+        3.0 * F_KT_CM, F_KT_CM, ALPHA_HURKX
+    )
+    assert G > 1.0e3
+
+
+def test_hurkx_gamma_monotone_in_field():
+    Fs = np.array([0.5, 1.0, 1.5, 2.0]) * F_KT_CM
+    Gs = recombination.hurkx_gamma_np(Fs, F_KT_CM, ALPHA_HURKX)
+    for i in range(1, len(Gs)):
+        assert Gs[i] > Gs[i - 1]
+
+
+def test_hurkx_gamma_alpha_one_collapses_prefactor():
+    """With alpha = 1 the (F/F_kT)^(alpha-1) factor is unity, so
+    Gamma -> 2 sqrt(3 pi) * exp((F/F_kT)^2). Used as a basic
+    consistency check."""
+    F = 0.5 * F_KT_CM
+    G = recombination.hurkx_gamma_np(F, F_KT_CM, 1.0)
+    pref = 2.0 * np.sqrt(3.0 * np.pi)
+    expected = pref * np.exp((F / F_KT_CM) ** 2)
+    assert G == pytest.approx(expected, rel=1.0e-12)
+
+
+class _StubScaling:
+    """Minimal Scaling stand-in for testing scaled_kane_coefficients."""
+
+    def __init__(self, V0=0.02585, L0=1.0e-6, C0=1.0e23, t0=1.0e-9):
+        self.V0 = V0
+        self.L0 = L0
+        self.C0 = C0
+        self.t0 = t0
+
+
+def test_scaled_kane_coefficients_round_trip():
+    """SI -> scaled -> implied SI reproduces the input within 1e-12
+    relative tolerance."""
+    sc = _StubScaling()
+    out = recombination.scaled_kane_coefficients(
+        A_KANE_CM, B_KANE_CM, sc
+    )
+    # Inverse: A_cm = A_hat * L0^2 * C0 / (V0^1.5 * t0) / 100
+    A_recovered = (
+        out["A_kane_hat"] * sc.L0 ** 2 * sc.C0
+        / (sc.V0 ** 1.5 * sc.t0) / 100.0
+    )
+    B_recovered = (
+        out["B_kane_hat"] / (sc.L0 * np.sqrt(sc.V0)) / 100.0
+    )
+    assert A_recovered == pytest.approx(A_KANE_CM, rel=1.0e-12)
+    assert B_recovered == pytest.approx(B_KANE_CM, rel=1.0e-12)
+
+
+def test_scaled_hurkx_F_kT_round_trip():
+    sc = _StubScaling()
+    F_hat = recombination.scaled_hurkx_F_kT(F_KT_CM, sc)
+    F_recovered = F_hat * sc.V0 / sc.L0 / 100.0
+    assert F_recovered == pytest.approx(F_KT_CM, rel=1.0e-12)
+
+
+def test_scaled_E_g_round_trip():
+    sc = _StubScaling()
+    E_g_hat = recombination.scaled_E_g(E_G_SI_eV, sc)
+    assert E_g_hat == pytest.approx(E_G_SI_eV / sc.V0)
+
+
+def test_bbt_rate_scaled_form_consistency():
+    """Compute G_phys (cm^-3 s^-1 with cm-based inputs), convert to m^-3
+    s^-1 (factor 1e6) then to scaled form (divide by C0/t0), and
+    compare against bbt_rate_np applied to scaled inputs with
+    A_kane_hat, B_kane_hat. Round-trip must agree to machine precision."""
+    sc = _StubScaling()
+    F_cm = 2.0e6                    # V/cm
+    G_cm = recombination.bbt_rate_np(F_cm, E_G_SI_eV, A_KANE_CM, B_KANE_CM)
+    G_m = G_cm * 1.0e6              # m^-3 s^-1
+    G_hat_via_phys = G_m / (sc.C0 / sc.t0)
+
+    coefs = recombination.scaled_kane_coefficients(
+        A_KANE_CM, B_KANE_CM, sc
+    )
+    E_g_hat = recombination.scaled_E_g(E_G_SI_eV, sc)
+    F_si = F_cm * 100.0             # V/m
+    F_hat = F_si * sc.L0 / sc.V0    # |grad(psi_hat)|
+
+    G_hat_direct = recombination.bbt_rate_np(
+        F_hat, E_g_hat, coefs["A_kane_hat"], coefs["B_kane_hat"]
+    )
+    assert G_hat_direct == pytest.approx(G_hat_via_phys, rel=1.0e-10)
+
+
+def test_hurkx_gamma_scaled_form_consistency():
+    """Round-trip: Gamma evaluated in physical units must equal Gamma
+    evaluated in scaled units after the F -> F_hat substitution."""
+    sc = _StubScaling()
+    F_cm = 1.2 * F_KT_CM
+    G_phys = recombination.hurkx_gamma_np(F_cm, F_KT_CM, ALPHA_HURKX)
+    F_si = F_cm * 100.0
+    F_hat = F_si * sc.L0 / sc.V0
+    F_kT_hat = recombination.scaled_hurkx_F_kT(F_KT_CM, sc)
+    G_scaled = recombination.hurkx_gamma_np(F_hat, F_kT_hat, ALPHA_HURKX)
+    assert G_scaled == pytest.approx(G_phys, rel=1.0e-12)

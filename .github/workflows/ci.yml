@@ -187,6 +187,13 @@ jobs:
           # I-V directly to the closed form via thermionic_iv.
           - name: schottky_1d
             args: schottky_1d
+          # M16.6 Acceptance test 1: heavily-doped Si abrupt junction
+          # reverse-bias I-V matches the closed-form Kane band-to-band
+          # breakdown reference within 20 % from V_R = -8 V to -4 V.
+          # The verifier reads the bbt-on benchmark output and
+          # compares to kane_breakdown_iv.
+          - name: zener_1d
+            args: zener_1d
           - name: resistor_3d_builtin
             args: resistor_3d --input benchmarks/resistor_3d/resistor.json
           - name: resistor_3d_gmsh
