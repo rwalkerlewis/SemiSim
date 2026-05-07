@@ -358,6 +358,15 @@ binding; the owner picks one explicitly when the next task ships.
 - **M20 HTTP server hardening.** API-key middleware, per-key rate
   limiting, admin endpoint to issue/revoke keys. Required before
   multi-tenant deployment.
+- **Examples catalogue (shipped).** New `examples/` top-level
+  directory with three self-contained practical-device configs
+  (`nmos_idvgs`, `schottky_iv_temperature`,
+  `power_diode_reverse_recovery`). Smoke verifiers gate run
+  completion and qualitative shape; the V&V layer remains
+  `benchmarks/`. Non-milestone documentation work; the next-task
+  pointer is unchanged. Future-examples candidates (NPN BJT,
+  NMOS C-V at multiple body biases, SiC Schottky, tunnel diode
+  forward I-V) are listed in `examples/README.md`.
 
 ## Roadmap
 

@@ -372,6 +372,11 @@ Beyond equilibrium, kronos-semi handles:
   operating point. Demonstrated by `benchmarks/pn_1d_pulse/`
   (step variant) and `benchmarks/diode_sine_1d/` (table
   variant). New in v0.23.0.
+- **Practical examples.** See `examples/` for self-contained
+  device configs (NMOS Id-Vgs, Schottky temperature
+  dependence, power diode reverse recovery) demonstrating
+  M16 features in real engineering contexts. Distinct from
+  `benchmarks/` (which gates V&V).
 
 Verification & validation: every domain-physics module has an MMS
 variant in `semi/verification/mms_dd.py` (Variants A through H).

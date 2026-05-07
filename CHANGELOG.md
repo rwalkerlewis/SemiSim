@@ -27,6 +27,37 @@ with `[0.22.0]` below), and **2.7.0** (additive minor; M16.7
 transient time-varying contact voltage `voltage_t`; shipped with
 `[0.23.0]` below).
 
+## [Unreleased]
+
+### Added
+
+- **Examples catalogue.** New top-level `examples/` directory with
+  three self-contained practical-device configs:
+  - `examples/nmos_idvgs/` (Caughey-Thomas + Lombardi + Fermi-Dirac;
+    practical NMOS Id-Vgs at V_DS = 0.05 V and V_DS = 1.8 V).
+  - `examples/schottky_iv_temperature/` (Schottky thermionic
+    emission at 250 / 300 / 350 K).
+  - `examples/power_diode_reverse_recovery/` (voltage_t.table +
+    Auger; long-base rectifier turn-off transient).
+  Each example ships with a load-bearing `README.md`, a smoke
+  verifier and plotter registered in `scripts/run_benchmark.py`,
+  a CI matrix entry under `docker-fem-benchmarks`, and a
+  registration-coverage test in `tests/test_examples_register.py`.
+  The `scripts/run_benchmark.py` CLI now falls back to `examples/`
+  when a name is not found under `benchmarks/`.
+
+### Notes
+
+- No package version bump in this release; the examples catalogue is
+  documentation / demonstration work that does not change the API or
+  schema. The next physics PR (M17 or M19) will roll this into its
+  own version bump.
+- No schema bump; v2.7.0 stays current.
+- Every existing benchmark is bit-identical to v0.23.0 (anchors:
+  pn_1d_bias J(V=0.6 V) = 1.635e+03 A/m^2; diode_velsat_1d 56.27 %
+  @ 0.9 V, 0.19 % @ 0.3 V; schottky_1d worst-case <10 %; zener_1d
+  worst-case <20 % Kane match).
+
 ## [0.23.0] - 2026-05-06
 
 **M16 umbrella complete.** All seven physics-completeness slices

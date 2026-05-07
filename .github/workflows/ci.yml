@@ -213,6 +213,18 @@ jobs:
             args: resistor_3d --input benchmarks/resistor_3d/resistor.json
           - name: resistor_3d_gmsh
             args: resistor_3d --input benchmarks/resistor_3d/resistor_gmsh.json
+          # examples catalogue (v0.23.x): practical-device starting
+          # points exercising the M16 physics catalogue. Smoke gates
+          # (run completion, finite I-V, qualitative ordering); the
+          # V&V layer is benchmarks/. Examples must NOT carry
+          # allow-failure: "true"; if a run fails the example is
+          # broken and the PR should not merge.
+          - name: nmos_idvgs
+            args: nmos_idvgs
+          - name: schottky_iv_temperature
+            args: schottky_iv_temperature
+          - name: power_diode_reverse_recovery
+            args: power_diode_reverse_recovery
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3

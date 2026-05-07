@@ -1024,6 +1024,32 @@ The engine is ready for a UI when all of these are green:
 
 ### [Unreleased]
 
+- **2026-05-06**, examples catalogue shipped: three self-contained
+  practical-device configs land under a new top-level `examples/`
+  directory (`nmos_idvgs`, `schottky_iv_temperature`,
+  `power_diode_reverse_recovery`). Each example ships with a
+  load-bearing README, a smoke verifier and plotter registered in
+  `scripts/run_benchmark.py`, a CI matrix entry under
+  `docker-fem-benchmarks` (no `allow-failure` flag), and a
+  registration-coverage test in `tests/test_examples_register.py`.
+  The `scripts/run_benchmark.py` CLI now falls back to `examples/`
+  when a name is not found under `benchmarks/`, so the same
+  `docker compose run --rm benchmark <name>` invocation works for
+  both directories. Non-milestone documentation / demonstration
+  work; the M16 umbrella stays closed and the next-task pointer
+  (M17 heterojunctions or M19 3D MOSFET capstone) is unchanged.
+  Future-examples candidates (NPN BJT, NMOS C-V at multiple body
+  biases, SiC Schottky, tunnel diode forward I-V) are listed in
+  `examples/README.md` "future examples" section. No package
+  version bump; no schema bump (v2.7.0 stays current); every
+  existing benchmark is bit-identical to v0.23.0.
+- **2026-05-06**, author examples catalogue starter prompt
+  ([EXAMPLES_CATALOGUE_STARTER_PROMPT.md](EXAMPLES_CATALOGUE_STARTER_PROMPT.md))
+  on branch `dev/examples-catalogue`; phases ship per the PR
+  template at the bottom of the prompt. Non-milestone
+  documentation / demonstration work; runs parallel to the M17
+  / M19 next-task path.
+
 ### [0.23.0]
 
 - **2026-05-06**, M16.7 transient time-varying contact voltage

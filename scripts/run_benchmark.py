@@ -36,6 +36,7 @@ import numpy as np  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BENCHMARKS_DIR = REPO_ROOT / "benchmarks"
+EXAMPLES_DIR = REPO_ROOT / "examples"
 RESULTS_DIR = REPO_ROOT / "results"
 
 
@@ -3117,6 +3118,509 @@ _PLOTTERS["diode_sine_1d"] = plot_diode_sine_1d
 
 
 # --------------------------------------------------------------------------- #
+# Examples catalogue (v0.23.x)                                                #
+#                                                                             #
+# Smoke verifiers for the practical-device configs under examples/. These     #
+# are illustrative starting points, not V&V gates: each verifier asserts      #
+# only run completion, finiteness of the recorded I-V data, and qualitative   #
+# physical ordering. Tight numerical correctness gates live under             #
+# benchmarks/.                                                                #
+# --------------------------------------------------------------------------- #
+
+
+def _drain_voltage_overrides(cfg, v_ds_values):
+    """Yield (v_ds, cfg_copy) pairs with the drain contact voltage overridden.
+
+    Mutates a deepcopy of cfg so the caller can pass each cfg_copy to
+    semi.run.run() without disturbing the input dict. The output directory
+    is also redirected to a per-V_DS subdirectory under the example's
+    output path so the companion runs do not stomp on each other.
+    """
+    import copy
+
+    base_out_dir = (
+        cfg.get("output", {}).get("directory") or "./results/_companion"
+    )
+    for v_ds in v_ds_values:
+        cfg_v = copy.deepcopy(cfg)
+        for c in cfg_v["contacts"]:
+            if c["name"] == "drain":
+                c["voltage"] = float(v_ds)
+        cfg_v.setdefault("output", {})
+        cfg_v["output"] = dict(cfg_v["output"])
+        cfg_v["output"]["directory"] = (
+            f"{base_out_dir.rstrip('/')}/_vds_{v_ds:.2f}"
+        )
+        yield float(v_ds), cfg_v
+
+
+@register("nmos_idvgs")
+def verify_nmos_idvgs(result) -> list[tuple[str, bool, str]]:
+    """
+    Smoke verifier for the nmos_idvgs example.
+
+    Anchor run: V_DS = 0.05 V (linear regime), V_GS sweep from the JSON.
+    Companion run: V_DS = 1.8 V (saturation regime), same V_GS sweep,
+    invoked here via in-process semi.run.run() with the drain voltage
+    overridden.
+
+    Checks (smoke only; tight tolerances live under benchmarks/):
+      - Both runs complete without raising and record an iv table.
+      - I(V_GS) is finite at every V_GS for both V_DS values.
+      - For every V_DS, J_drain is monotonically non-decreasing in V_GS
+        (transistor sits on the right side of subthreshold; small dips
+        below 1 % of the local maximum are tolerated as numerical noise).
+      - I_D at V_GS = 1.8 V, V_DS = 1.8 V is positive and finite.
+    """
+    from semi import run as semi_run
+
+    cfg_anchor = result.cfg
+    iv_anchor = list(result.iv or [])
+
+    if not iv_anchor:
+        return [(
+            "nmos_idvgs: anchor run recorded iv rows",
+            False, "no iv rows in result",
+        )]
+
+    v_ds_other = 1.8
+    print(f"[nmos_idvgs] running companion sweep at V_DS = {v_ds_other} V...",
+          flush=True)
+    iv_by_vds: dict[float, list[dict]] = {}
+    iv_by_vds[float(cfg_anchor["contacts"][2]["voltage"])] = iv_anchor
+
+    for v_ds, cfg_v in _drain_voltage_overrides(cfg_anchor, [v_ds_other]):
+        res = semi_run.run(cfg_v)
+        iv_by_vds[v_ds] = list(res.iv or [])
+
+    checks: list[tuple[str, bool, str]] = []
+
+    for v_ds, iv in sorted(iv_by_vds.items()):
+        if not iv:
+            checks.append((
+                f"nmos_idvgs: V_DS = {v_ds:.2f} V run recorded iv rows",
+                False, "iv table empty",
+            ))
+            continue
+
+        gate_iv = sorted(
+            (r for r in iv if r.get("contact") == "gate"),
+            key=lambda r: r["V"],
+        )
+        if not gate_iv or "J_drain" not in gate_iv[0]:
+            checks.append((
+                f"nmos_idvgs: V_DS = {v_ds:.2f} V run recorded J_drain",
+                False,
+                "expected per-step J_drain from the M14.3 bias_sweep extension",
+            ))
+            continue
+
+        j_drain = np.array([r["J_drain"] for r in gate_iv], dtype=float)
+
+        finite = bool(np.all(np.isfinite(j_drain)))
+        checks.append((
+            f"nmos_idvgs: V_DS = {v_ds:.2f} V J_drain finite",
+            finite,
+            f"non-finite samples: {int((~np.isfinite(j_drain)).sum())} "
+            f"/ {len(j_drain)}",
+        ))
+        if not finite:
+            continue
+
+        # Monotonic-non-decreasing in V_GS, with a 1 % local-maximum
+        # tolerance for numerical noise (the smoke gate is qualitative).
+        running_max = np.maximum.accumulate(np.abs(j_drain))
+        violations = np.sum(np.abs(j_drain) < running_max * 0.99)
+        checks.append((
+            f"nmos_idvgs: V_DS = {v_ds:.2f} V |J_drain| monotone in V_GS "
+            f"(<= 1 % dips tolerated)",
+            int(violations) == 0,
+            f"{int(violations)} / {len(j_drain)} samples below the running max",
+        ))
+
+    iv_sat = iv_by_vds.get(v_ds_other, [])
+    gate_iv_sat = sorted(
+        (r for r in iv_sat if r.get("contact") == "gate"),
+        key=lambda r: r["V"],
+    )
+    j_at_max = None
+    for r in gate_iv_sat[::-1]:
+        if abs(float(r["V"]) - 1.8) < 1.0e-6 and "J_drain" in r:
+            j_at_max = float(r["J_drain"])
+            break
+    if j_at_max is None and gate_iv_sat:
+        last = gate_iv_sat[-1]
+        if "J_drain" in last:
+            j_at_max = float(last["J_drain"])
+
+    checks.append((
+        "nmos_idvgs: I_D at V_GS = 1.8 V, V_DS = 1.8 V positive and finite",
+        j_at_max is not None and np.isfinite(j_at_max) and j_at_max > 0.0,
+        f"J_drain = {j_at_max!r}",
+    ))
+
+    result._nmos_curves_by_vds = {
+        v_ds: (
+            np.array([r["V"] for r in sorted(
+                (q for q in iv if q.get("contact") == "gate"),
+                key=lambda q: q["V"],
+            )], dtype=float),
+            np.array([r.get("J_drain", float("nan")) for r in sorted(
+                (q for q in iv if q.get("contact") == "gate"),
+                key=lambda q: q["V"],
+            )], dtype=float),
+        )
+        for v_ds, iv in iv_by_vds.items()
+    }
+    return checks
+
+
+def plot_nmos_idvgs(result, out_dir: Path) -> list[Path]:
+    """Two-panel Id-Vgs overlay (linear and semilog)."""
+    curves = getattr(result, "_nmos_curves_by_vds", None)
+    if not curves:
+        return []
+
+    fig, (ax_lin, ax_log) = plt.subplots(2, 1, figsize=(7.5, 8), sharex=True)
+    for v_ds in sorted(curves):
+        v_gs, j_drain = curves[v_ds]
+        ax_lin.plot(v_gs, j_drain, "o-", markersize=3,
+                    label=f"V_DS = {v_ds:.2f} V")
+        ax_log.semilogy(v_gs, np.maximum(np.abs(j_drain), 1.0e-30),
+                        "o-", markersize=3,
+                        label=f"V_DS = {v_ds:.2f} V")
+
+    ax_lin.set_ylabel("J_drain (A/m)")
+    ax_lin.grid(True, alpha=0.3)
+    ax_lin.legend(loc="best")
+    ax_lin.set_title("nmos_idvgs: linear-y (saturation visible)")
+
+    ax_log.set_xlabel("V_GS (V)")
+    ax_log.set_ylabel("|J_drain| (A/m)")
+    ax_log.grid(True, which="both", alpha=0.3)
+    ax_log.legend(loc="best")
+    ax_log.set_title("nmos_idvgs: semilog-y (subthreshold visible)")
+
+    fig.tight_layout()
+    p = out_dir / "id_vgs_overlay.png"
+    fig.savefig(p, dpi=130)
+    plt.close(fig)
+    return [p]
+
+
+_PLOTTERS["nmos_idvgs"] = plot_nmos_idvgs
+
+
+def _temperature_overrides(cfg, temperatures):
+    """Yield (T, cfg_copy) pairs with physics.temperature overridden."""
+    import copy
+
+    base_out_dir = (
+        cfg.get("output", {}).get("directory") or "./results/_companion"
+    )
+    for t_kelvin in temperatures:
+        cfg_t = copy.deepcopy(cfg)
+        cfg_t["physics"]["temperature"] = float(t_kelvin)
+        cfg_t.setdefault("output", {})
+        cfg_t["output"] = dict(cfg_t["output"])
+        cfg_t["output"]["directory"] = (
+            f"{base_out_dir.rstrip('/')}/_T_{int(round(t_kelvin))}K"
+        )
+        yield float(t_kelvin), cfg_t
+
+
+@register("schottky_iv_temperature")
+def verify_schottky_iv_temperature(result) -> list[tuple[str, bool, str]]:
+    """
+    Smoke verifier for the schottky_iv_temperature example.
+
+    Anchor run: T = 300 K. Companion runs: T = 250 K and T = 350 K,
+    invoked here via in-process semi.run.run() with
+    physics.temperature overridden.
+
+    Checks (smoke only; tight tolerances live under benchmarks/):
+      - All three runs complete without raising and record an iv table.
+      - For each T, the I(V_F) curve is finite at every V_F and is
+        monotonically non-decreasing in V_F (1 % local-max tolerance).
+      - At V_F = 0.3 V (mid-sweep), I(350 K) > I(300 K) > I(250 K)
+        strictly (the temperature-dependent thermionic-emission ordering
+        must be physically correct).
+    """
+    from semi import run as semi_run
+
+    cfg_anchor = result.cfg
+    iv_anchor = list(result.iv or [])
+    if not iv_anchor:
+        return [(
+            "schottky_iv_temperature: anchor run recorded iv rows",
+            False, "no iv rows in result",
+        )]
+
+    iv_by_T: dict[float, list[dict]] = {}
+    iv_by_T[float(cfg_anchor["physics"]["temperature"])] = iv_anchor
+
+    for t_kelvin, cfg_t in _temperature_overrides(cfg_anchor, [250.0, 350.0]):
+        print(
+            f"[schottky_iv_temperature] running companion sweep at "
+            f"T = {t_kelvin:.0f} K...",
+            flush=True,
+        )
+        res = semi_run.run(cfg_t)
+        iv_by_T[t_kelvin] = list(res.iv or [])
+
+    checks: list[tuple[str, bool, str]] = []
+
+    j_at_vf03: dict[float, float] = {}
+    for t_kelvin in sorted(iv_by_T):
+        iv = iv_by_T[t_kelvin]
+        if not iv:
+            checks.append((
+                f"schottky_iv_temperature: T = {t_kelvin:.0f} K run "
+                f"recorded iv rows",
+                False, "iv table empty",
+            ))
+            continue
+
+        anode_iv = sorted(
+            (r for r in iv if r.get("contact") == "anode"),
+            key=lambda r: r["V"],
+        )
+        v_f = np.array([r["V"] for r in anode_iv], dtype=float)
+        j_arr = np.array([r["J"] for r in anode_iv], dtype=float)
+
+        finite = bool(np.all(np.isfinite(j_arr)))
+        checks.append((
+            f"schottky_iv_temperature: T = {t_kelvin:.0f} K I(V_F) finite",
+            finite,
+            f"non-finite samples: {int((~np.isfinite(j_arr)).sum())} "
+            f"/ {len(j_arr)}",
+        ))
+        if not finite:
+            continue
+
+        running_max = np.maximum.accumulate(np.abs(j_arr))
+        violations = int(np.sum(np.abs(j_arr) < running_max * 0.99))
+        checks.append((
+            f"schottky_iv_temperature: T = {t_kelvin:.0f} K I(V_F) monotone "
+            f"in V_F (<= 1 % dips tolerated)",
+            violations == 0,
+            f"{violations} / {len(j_arr)} samples below the running max",
+        ))
+
+        j_at_vf03[t_kelvin] = float(np.interp(0.3, v_f, j_arr))
+
+    if all(t in j_at_vf03 for t in (250.0, 300.0, 350.0)):
+        ordering_ok = (
+            j_at_vf03[350.0] > j_at_vf03[300.0] > j_at_vf03[250.0]
+        )
+        checks.append((
+            "schottky_iv_temperature: I(350 K) > I(300 K) > I(250 K) "
+            "at V_F = 0.3 V",
+            ordering_ok,
+            f"J(250 K) = {j_at_vf03[250.0]:.3e}, "
+            f"J(300 K) = {j_at_vf03[300.0]:.3e}, "
+            f"J(350 K) = {j_at_vf03[350.0]:.3e} A/m^2",
+        ))
+    else:
+        checks.append((
+            "schottky_iv_temperature: I(V_F = 0.3 V) interpolated for all T",
+            False,
+            f"iv tables present for T = {sorted(j_at_vf03)} K",
+        ))
+
+    result._schottky_iv_by_T = {
+        t_kelvin: (
+            np.array([r["V"] for r in sorted(
+                (q for q in iv if q.get("contact") == "anode"),
+                key=lambda q: q["V"],
+            )], dtype=float),
+            np.array([r["J"] for r in sorted(
+                (q for q in iv if q.get("contact") == "anode"),
+                key=lambda q: q["V"],
+            )], dtype=float),
+        )
+        for t_kelvin, iv in iv_by_T.items()
+    }
+    return checks
+
+
+def plot_schottky_iv_temperature(result, out_dir: Path) -> list[Path]:
+    """Three semilog-y I-V curves overlaid, color-coded by temperature."""
+    iv_by_T = getattr(result, "_schottky_iv_by_T", None)
+    if not iv_by_T:
+        return []
+
+    fig, ax = plt.subplots(1, 1, figsize=(7.5, 5))
+    cmap = plt.get_cmap("coolwarm")
+    temps_sorted = sorted(iv_by_T)
+    for i, t_kelvin in enumerate(temps_sorted):
+        v_f, j_arr = iv_by_T[t_kelvin]
+        color = cmap(i / max(len(temps_sorted) - 1, 1))
+        ax.semilogy(v_f, np.maximum(np.abs(j_arr), 1.0e-30),
+                    "o-", markersize=3, color=color,
+                    label=f"T = {t_kelvin:.0f} K")
+    ax.set_xlabel("V_F (V)")
+    ax.set_ylabel("|J_anode| (A/m^2)")
+    ax.grid(True, which="both", alpha=0.3)
+    ax.legend(loc="best")
+    ax.set_title(
+        "schottky_iv_temperature: Pt-on-n-Si I-V at 250 / 300 / 350 K"
+    )
+    fig.tight_layout()
+    p = out_dir / "schottky_iv_temperature.png"
+    fig.savefig(p, dpi=130)
+    plt.close(fig)
+    return [p]
+
+
+_PLOTTERS["schottky_iv_temperature"] = plot_schottky_iv_temperature
+
+
+@register("power_diode_reverse_recovery")
+def verify_power_diode_reverse_recovery(result) -> list[tuple[str, bool, str]]:
+    """
+    Smoke verifier for the power_diode_reverse_recovery example.
+
+    Single transient run: 1D long-base pn diode driven through a
+    forward-conduction segment (t in [0, 50] ns at +0.7 V), a 10 ns
+    linear voltage-reversal transition (t in [50, 60] ns), and a
+    reverse-blocking segment (t in [60, 200] ns at -2.0 V).
+
+    Checks (smoke only; tight tolerances live under benchmarks/):
+      - Run completed (transient iv table populated).
+      - I(t) is finite and non-NaN at every recorded timestep.
+      - max(I(t) for t < 50 ns) > 0 (forward conduction is positive).
+      - min(I(t) for t > 60 ns) < 0 (reverse-recovery dip negative).
+      - I(t = t_end) > min(I(t)) (the diode is settling toward
+        reverse-blocking; the final-time current is closer to zero
+        than the recovery minimum).
+    """
+    iv = list(result.iv or [])
+    if not iv:
+        return [(
+            "power_diode_reverse_recovery: transient recorded iv rows",
+            False, "no iv rows in result",
+        )]
+
+    iv_anode = sorted(
+        (r for r in iv if r.get("contact") == "anode"),
+        key=lambda r: r["t"],
+    )
+    if len(iv_anode) < 20:
+        return [(
+            "power_diode_reverse_recovery: at least 20 iv samples on anode",
+            False, f"got {len(iv_anode)}",
+        )]
+
+    t_arr = np.array([r["t"] for r in iv_anode], dtype=float)
+    j_arr = np.array([r["J"] for r in iv_anode], dtype=float)
+
+    checks: list[tuple[str, bool, str]] = []
+
+    finite = bool(np.all(np.isfinite(j_arr)))
+    checks.append((
+        "power_diode_reverse_recovery: I(t) finite everywhere",
+        finite,
+        f"non-finite samples: {int((~np.isfinite(j_arr)).sum())} "
+        f"/ {len(j_arr)}",
+    ))
+    if not finite:
+        return checks
+
+    pre_mask = t_arr < 50.0e-9
+    post_mask = t_arr > 60.0e-9
+    if not pre_mask.any() or not post_mask.any():
+        return [(
+            "power_diode_reverse_recovery: pre- and post-transition samples "
+            "present",
+            False,
+            f"pre={int(pre_mask.sum())}, post={int(post_mask.sum())}",
+        )]
+
+    j_pre_max = float(np.max(j_arr[pre_mask]))
+    j_post_min = float(np.min(j_arr[post_mask]))
+    j_final = float(j_arr[-1])
+    t_recovery_min = float(t_arr[post_mask][int(np.argmin(j_arr[post_mask]))])
+
+    checks.append((
+        "power_diode_reverse_recovery: forward conduction positive "
+        "(max J in t < 50 ns > 0)",
+        j_pre_max > 0.0,
+        f"max(J) = {j_pre_max:.3e} A/m^2",
+    ))
+
+    checks.append((
+        "power_diode_reverse_recovery: reverse-recovery dip negative "
+        "(min J in t > 60 ns < 0)",
+        j_post_min < 0.0,
+        f"min(J) = {j_post_min:.3e} A/m^2 at t = {t_recovery_min*1e9:.1f} ns",
+    ))
+
+    checks.append((
+        "power_diode_reverse_recovery: J(t_end) settling toward zero "
+        "(J_final > min J in recovery)",
+        j_final > j_post_min,
+        f"J(t={t_arr[-1]*1e9:.1f} ns) = {j_final:.3e} A/m^2; "
+        f"min(J) = {j_post_min:.3e} A/m^2",
+    ))
+
+    return checks
+
+
+def plot_power_diode_reverse_recovery(result, out_dir: Path) -> list[Path]:
+    """I(t) and V(t) on twin y-axes, time on x-axis, regions annotated."""
+    iv_anode = sorted(
+        (r for r in result.iv if r.get("contact") == "anode"),
+        key=lambda r: r["t"],
+    )
+    t_ns = np.array([r["t"] for r in iv_anode]) * 1.0e9
+    j_arr = np.array([r["J"] for r in iv_anode], dtype=float)
+    v_arr = np.array([r["V"] for r in iv_anode], dtype=float)
+
+    fig, ax_left = plt.subplots(1, 1, figsize=(8.5, 5))
+    ax_right = ax_left.twinx()
+
+    line_j, = ax_left.plot(t_ns, j_arr, color="tab:blue", lw=1.4,
+                           label="J_anode")
+    line_v, = ax_right.plot(t_ns, v_arr, color="tab:red", lw=1.0,
+                            ls="--", label="V_anode")
+
+    ax_left.set_xlabel("t (ns)")
+    ax_left.set_ylabel("J_anode (A/m^2)", color="tab:blue")
+    ax_left.tick_params(axis="y", labelcolor="tab:blue")
+    ax_right.set_ylabel("V_anode (V)", color="tab:red")
+    ax_right.tick_params(axis="y", labelcolor="tab:red")
+    ax_left.grid(True, alpha=0.3)
+
+    # Region shading
+    ax_left.axvspan(0.0, 50.0, alpha=0.10, color="tab:green",
+                    label="conduction")
+    ax_left.axvspan(50.0, 60.0, alpha=0.10, color="tab:orange",
+                    label="transition")
+    ax_left.axvspan(60.0, 100.0, alpha=0.10, color="tab:red",
+                    label="recovery")
+    ax_left.axvspan(100.0, max(200.0, float(t_ns[-1])), alpha=0.10,
+                    color="tab:purple", label="settled")
+
+    handles, labels = ax_left.get_legend_handles_labels()
+    handles += [line_j, line_v]
+    labels += ["J_anode", "V_anode"]
+    ax_left.legend(handles=handles, labels=labels, loc="best", fontsize=8)
+    ax_left.set_title(
+        "power_diode_reverse_recovery: rectifier turn-off transient via "
+        "voltage_t.table"
+    )
+    fig.tight_layout()
+    p = out_dir / "iv_recovery.png"
+    fig.savefig(p, dpi=130)
+    plt.close(fig)
+    return [p]
+
+
+_PLOTTERS["power_diode_reverse_recovery"] = plot_power_diode_reverse_recovery
+
+
+# --------------------------------------------------------------------------- #
 # Driver                                                                      #
 # --------------------------------------------------------------------------- #
 
@@ -3147,8 +3651,16 @@ def main(argv: list[str] | None = None) -> int:
     name = args.name
     bench_dir = BENCHMARKS_DIR / name
     if not bench_dir.is_dir():
-        print(f"ERROR: benchmark directory not found: {bench_dir}", file=sys.stderr)
-        return 2
+        example_dir = EXAMPLES_DIR / name
+        if example_dir.is_dir():
+            bench_dir = example_dir
+        else:
+            print(
+                f"ERROR: benchmark directory not found: {bench_dir} "
+                f"(also checked {example_dir})",
+                file=sys.stderr,
+            )
+            return 2
 
     try:
         json_path = Path(args.input) if args.input else find_json(bench_dir, name)

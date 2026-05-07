@@ -1,0 +1,93 @@
+{
+  "schema_version": "2.7.0",
+  "name": "schottky_iv_temperature",
+  "description": "Practical Pt-on-n-Si Schottky diode (1D, N_D = 1e16 cm^-3 uniform, 5 um, V_F sweep [0, 0.5] V step 0.025 V) characterized at three temperatures (250 K, 300 K, 350 K). Geometry mirrors benchmarks/schottky_1d for parameter consistency; the temperature dependence is the new axis. The anchor JSON pins T = 300 K and the smoke verifier loops over the other two temperatures via in-process re-runs that override physics.temperature. Exercises the M16.5 Schottky thermionic-emission Robin BC under temperature variation.",
+  "dimension": 1,
+  "mesh": {
+    "source": "builtin",
+    "extents": [
+      [0.0, 5.0e-6]
+    ],
+    "resolution": [400],
+    "regions_by_box": [
+      {
+        "name": "silicon",
+        "tag": 1,
+        "bounds": [
+          [0.0, 5.0e-6]
+        ]
+      }
+    ],
+    "facets_by_plane": [
+      {"name": "anode",   "tag": 1, "axis": 0, "value": 0.0},
+      {"name": "cathode", "tag": 2, "axis": 0, "value": 5.0e-6}
+    ]
+  },
+  "regions": {
+    "silicon": {
+      "material": "Si",
+      "tag": 1,
+      "role": "semiconductor"
+    }
+  },
+  "doping": [
+    {
+      "region": "silicon",
+      "profile": {
+        "type": "uniform",
+        "N_D": 1.0e+16,
+        "N_A": 0.0
+      }
+    }
+  ],
+  "contacts": [
+    {
+      "name": "anode",
+      "facet": "anode",
+      "type": "schottky",
+      "barrier_height_eV": 0.85,
+      "voltage": 0.0,
+      "voltage_sweep": {
+        "start": 0.0,
+        "stop": 0.5,
+        "step": 0.025
+      }
+    },
+    {
+      "name": "cathode",
+      "facet": "cathode",
+      "type": "ohmic",
+      "voltage": 0.0
+    }
+  ],
+  "physics": {
+    "temperature": 300.0,
+    "statistics": "boltzmann",
+    "recombination": {
+      "srh": true,
+      "tau_n": 1.0e-07,
+      "tau_p": 1.0e-07,
+      "E_t": 0.0
+    }
+  },
+  "solver": {
+    "type": "bias_sweep",
+    "snes": {
+      "rtol": 1.0e-12,
+      "atol": 1.0e-10,
+      "stol": 1.0e-14,
+      "max_it": 80
+    },
+    "continuation": {
+      "min_step": 1.0e-04,
+      "max_halvings": 6,
+      "max_step": 0.025,
+      "easy_iter_threshold": 4,
+      "grow_factor": 1.5
+    }
+  },
+  "output": {
+    "directory": "./results/schottky_iv_temperature",
+    "fields": ["potential", "n", "p"]
+  }
+}
