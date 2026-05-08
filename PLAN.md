@@ -36,10 +36,40 @@ recombination for 1D/2D/3D devices.
 ## Current state
 
 M1 through M15 plus M14.3, M14.4, M16.1, M16.2, M16.3, M16.4,
-M16.5, M16.6, and M16.7 are merged into `main`. Current package
-version is `0.23.0`; M16.7 (transient time-varying contact
-voltage, branch `dev/m16.7-transient-ac`) closes the M16
-umbrella by extending `semi/runners/transient.py` with a
+M16.5, M16.6, M16.7, and M17 are merged into `main`. Current
+package version is `0.24.0`; M17 (heterojunction / position-
+dependent band structure, branch `dev/m17-heterojunction`)
+shipped in v0.24.0 with schema additive minor bump v2.7.0 ->
+v2.8.0 (`regions[].material_overrides` with `chi_eV`, `Eg_eV`,
+`Nc_per_cm3`, `Nv_per_cm3`; `regions[].heterojunction` boolean).
+ADR 0016 documents the heterojunction-aware Slotboom path:
+`n = n_i(x) exp((psi - phi_n) / V_t)` with `n_i(x)` a per-cell
+DG0 field; the continuity-flux shape is unchanged, ADR 0004 is
+preserved. New module `semi/physics/heterojunction.py` builds
+the per-cell DG0 chi/Eg/Nc/Nv/n_i/eps_r fields; threaded through
+both Poisson and DD form builders via a `heterojunction_fields`
+keyword. `AlGaAs_0p3` (Vurgaftman 2001 derived parameters at
+x = 0.3, 300 K) added to `semi/materials.py`.
+`semi/bcs.py::_ohmic_psi_eq_hat` reads chi from the local
+material at each ohmic contact's region (Anderson-rule).
+`benchmarks/hemt_2d/` ships an AlGaAs/GaAs HEMT 2D device with
+a Pozela-Reklaitis classical-electrostatic 2DEG reference
+(`semi/hemt_analytical.py`); the FEM-side n_s integration in
+`verify_hemt_2d` is a Phase F follow-up tracked in the M17 PR
+description. MMS-DD Variant I is registered in `VARIANTS` for
+forward compatibility; full rate-gate implementation (per-cell
+chi / Eg ramps in `_build_weak_sources`) is a deferred
+follow-up; the discontinuous-coefficient case is gated by
+`benchmarks/hemt_2d/` per ADR 0016 (same V&V departure pattern
+as ADR 0015 for Schottky Robin BCs). Single-material configs
+(no `material_overrides`, no `heterojunction: true`) are
+bit-identical to v0.23.0 on every existing benchmark
+(pn_1d_bias anchor: J(V=0.6 V) = 1.635e+03 A/m^2; the
+diode_velsat_1d, diode_auger_1d, diode_fermi_dirac_1d,
+schottky_1d, and zener_1d anchors continue to hold). M16.7
+(transient time-varying contact voltage, branch
+`dev/m16.7-transient-ac`) closed the M16 umbrella in v0.23.0
+by extending `semi/runners/transient.py` with a
 `contacts[].voltage_t` field (variants `table` and `step`) and
 reactivating audit case 06 (transient FFT of I(t) under
 sinusoidal V(t) compared to the M14 small-signal AC sweep
@@ -298,35 +328,34 @@ M15 through M18. Summary:
   through M16.7 shipped). Next-tier gaps in M17
   (heterojunctions, position-dependent chi and Eg) and M19
   (3D MOSFET capstone).
-- **Heterojunctions:** position-dependent χ and Eg not yet supported.
-  M17.
 - **Cartesian-2D MOSCAP variant** and a rigorous AC small-signal HF
   C-V method (driving the gate at high f) are tracked as M14.2.x open
   items in `docs/ROADMAP.md`.
 
 ## Next task
 
-**M17 (heterojunctions) or M19 (3D MOSFET capstone)** on a
-fresh branch. The M16 umbrella is complete after M16.7. The
-maintainer chooses between the two next-tier candidates:
+**M19 (3D MOSFET capstone)** on a fresh branch. The M16
+umbrella plus M17 (heterojunctions, shipped in v0.24.0) close the
+position-dependent material parameter expansion. M19 is the
+remaining roadmap capstone:
 
-- **M17: heterojunctions.** Position-dependent electron
-  affinity chi(x) and band gap E_g(x) on multi-region meshes.
-  Touches `semi/physics/poisson.py` and
-  `semi/physics/slotboom.py` (the band-edge offsets are no
-  longer constants). Depends on M16.4 (Fermi-Dirac, needed at
-  heterojunction barriers); unblocked.
 - **M19: 3D MOSFET capstone.** A 3D MOSFET on a gmsh-sourced
   unstructured mesh, exercising the M15 GPU linear-solver path
   and the M16.1 Caughey-Thomas mobility under non-trivial
   geometry. Depends on M16.1; unblocked. Expected to need MPI
   parallel orchestration (M19.1) for runtime to be tolerable.
+  The M17 heterojunction infrastructure (per-cell DG0 material
+  fields, position-dependent Slotboom substitution, Anderson-rule
+  ohmic equilibrium psi) is reusable for any future 3D
+  heterojunction device benchmark (3D HEMT, 3D HBT) that M19
+  might inspire, but is not a dependency of M19 (3D MOSFET is
+  single-material Si by default).
 
-Acceptance tests for both are documented in
+Acceptance tests are documented in
 [`docs/IMPROVEMENT_GUIDE.md`](docs/IMPROVEMENT_GUIDE.md) § 4 and
 [`docs/ROADMAP.md`](docs/ROADMAP.md). The next reviewer authors a
-starter prompt against the chosen milestone in the same shape as
-`docs/M16_7_STARTER_PROMPT.md`.
+starter prompt against M19 in the same shape as
+`docs/M17_STARTER_PROMPT.md`.
 
 ## Backlog
 

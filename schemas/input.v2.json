@@ -16,8 +16,9 @@
     "schema_version": {
       "type": "string",
       "pattern": "^2\\.\\d+\\.\\d+$",
-      "description": "Schema version in semver form. v2 enforces additionalProperties:false on every object node (typos in input keys fail validation rather than being silently ignored). Engine refuses inputs whose major does not match the engine's supported major. Current schema: 2.7.0; v2.0.0 through v2.6.0 inputs continue to validate (additive minors for the M16.1 caughey_thomas, M16.2 lombardi mobility, M16.3 Auger recombination, M16.4 Fermi-Dirac statistics, M16.5 Schottky contact, M16.6 BBT and TAT tunneling, and M16.7 transient time-varying contact voltage dispatches).",
+      "description": "Schema version in semver form. v2 enforces additionalProperties:false on every object node (typos in input keys fail validation rather than being silently ignored). Engine refuses inputs whose major does not match the engine's supported major. Current schema: 2.8.0; v2.0.0 through v2.7.0 inputs continue to validate (additive minors for the M16.1 caughey_thomas, M16.2 lombardi mobility, M16.3 Auger recombination, M16.4 Fermi-Dirac statistics, M16.5 Schottky contact, M16.6 BBT and TAT tunneling, M16.7 transient time-varying contact voltage, and M17 heterojunction / position-dependent material parameter dispatches).",
       "examples": [
+        "2.8.0",
         "2.7.0",
         "2.6.0",
         "2.5.0",
@@ -253,10 +254,12 @@
         "properties": {
           "material": {
             "type": "string",
-            "description": "Material name from the engine material database (e.g. Si, SiO2, Ge, GaAs).",
+            "description": "Material name from the engine material database (e.g. Si, SiO2, Ge, GaAs, AlGaAs_0p3).",
             "examples": [
               "Si",
-              "SiO2"
+              "SiO2",
+              "GaAs",
+              "AlGaAs_0p3"
             ]
           },
           "tag": {
@@ -270,6 +273,54 @@
               "insulator"
             ],
             "description": "Material role: `semiconductor` regions carry carriers and space charge; `insulator` regions carry only the dielectric Poisson term."
+          },
+          "material_overrides": {
+            "type": "object",
+            "title": "Per-region material parameter overrides (M17, schema 2.8.0)",
+            "description": "Optional per-region overrides for the band-edge and effective-density-of-states parameters that are otherwise read from `material`. Any subset of fields may be set; unset fields fall back to the corresponding value on `regions[*].material`. Used to model heterojunctions with non-standard alloy compositions without adding a new entry to the engine material database (e.g. AlGaAs at an Al fraction other than 0.3). When omitted, the region uses the unmodified material parameters and the result is bit-identical to v0.23.0.",
+            "properties": {
+              "chi_eV": {
+                "type": "number",
+                "description": "Electron affinity in eV (Anderson-rule band alignment). Overrides `regions[*].material.chi`.",
+                "examples": [
+                  3.74,
+                  4.07
+                ]
+              },
+              "Eg_eV": {
+                "type": "number",
+                "exclusiveMinimum": 0.0,
+                "description": "Bandgap in eV. Must be strictly positive. Overrides `regions[*].material.Eg`.",
+                "examples": [
+                  1.42,
+                  1.798
+                ]
+              },
+              "Nc_per_cm3": {
+                "type": "number",
+                "exclusiveMinimum": 0.0,
+                "description": "Conduction-band effective density of states in cm^-3. Must be strictly positive. Overrides `regions[*].material.Nc`.",
+                "examples": [
+                  4.7e+17,
+                  5.5e+17
+                ]
+              },
+              "Nv_per_cm3": {
+                "type": "number",
+                "exclusiveMinimum": 0.0,
+                "description": "Valence-band effective density of states in cm^-3. Must be strictly positive. Overrides `regions[*].material.Nv`.",
+                "examples": [
+                  7.0e+18,
+                  1.0e+19
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "heterojunction": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, the form builders treat this region's interface with adjacent regions as a heterojunction: the per-cell DG0 chi/Eg/Nc/Nv/n_i fields carry a step at the region boundary (Anderson-rule band alignment shows up as a discontinuity in the carrier density `n` derived from the Slotboom variables), and the ohmic-contact equilibrium psi reads chi from the local material rather than the reference material. When false (default), the cellwise material fields still pick up `material_overrides` if any are set, and the ohmic equilibrium psi calculation collapses to the v0.23.0 formula bit-identically when every region's chi matches the reference material. M17, schema 2.8.0."
           }
         },
         "additionalProperties": false

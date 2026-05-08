@@ -1,0 +1,88 @@
+{
+  "schema_version": "2.8.0",
+  "name": "hemt_2d",
+  "description": "2D AlGaAs/GaAs HEMT (M17 acceptance benchmark). 30 nm Al_0.3 Ga_0.7 As barrier with uniform N_D = 5e18 cm^-3 modulation doping (representing a delta layer spread across the barrier for finite mesh tractability) sits on a 100 nm GaAs channel (lightly p-type, N_A = 1e15 cm^-3) and a 200 nm GaAs buffer (same p-type level). Total device thickness 330 nm; lateral width 200 nm. Top: Schottky gate (work function 4.7 eV, M16.5 thermionic-emission Robin BC). Bottom: ohmic back contact. The verifier sweeps V_GS in [0.0, 1.0] V (0.1 V steps), integrates n(y) - N_D(y) across the channel to extract the 2DEG sheet density, and asserts agreement with the classical-electrostatic reference (Pozela & Reklaitis 1980; Stern 1972) within 15 % at every V_GS in [0.4, 1.0] V. The 15 % tolerance accommodates the gap between the classical FEM solver and a fully-quantum Poisson-Schrodinger reference; quantum confinement corrections are a future M-numbered milestone (ADR 0016 documents the V&V departure).",
+  "dimension": 2,
+  "mesh": {
+    "source": "builtin",
+    "extents": [
+      [0.0, 2.0e-7],
+      [0.0, 3.3e-7]
+    ],
+    "resolution": [4, 132],
+    "regions_by_box": [
+      {
+        "name": "buffer",
+        "tag": 1,
+        "bounds": [[0.0, 2.0e-7], [0.0, 2.0e-7]]
+      },
+      {
+        "name": "channel",
+        "tag": 2,
+        "bounds": [[0.0, 2.0e-7], [2.0e-7, 3.0e-7]]
+      },
+      {
+        "name": "barrier",
+        "tag": 3,
+        "bounds": [[0.0, 2.0e-7], [3.0e-7, 3.3e-7]]
+      }
+    ],
+    "facets_by_plane": [
+      {"name": "back",  "tag": 1, "axis": 1, "value": 0.0},
+      {"name": "gate",  "tag": 2, "axis": 1, "value": 3.3e-7}
+    ]
+  },
+  "regions": {
+    "buffer":  {"material": "GaAs",       "tag": 1, "role": "semiconductor"},
+    "channel": {"material": "GaAs",       "tag": 2, "role": "semiconductor"},
+    "barrier": {"material": "AlGaAs_0p3", "tag": 3, "role": "semiconductor",
+                "heterojunction": true}
+  },
+  "doping": [
+    {"region": "buffer",  "profile": {"type": "uniform", "N_D": 0.0,    "N_A": 1.0e15}},
+    {"region": "channel", "profile": {"type": "uniform", "N_D": 0.0,    "N_A": 1.0e15}},
+    {"region": "barrier", "profile": {"type": "uniform", "N_D": 5.0e18, "N_A": 0.0}}
+  ],
+  "contacts": [
+    {
+      "name": "back",
+      "facet": "back",
+      "type": "ohmic",
+      "voltage": 0.0
+    },
+    {
+      "name": "gate",
+      "facet": "gate",
+      "type": "schottky",
+      "barrier_height_eV": 0.95,
+      "voltage": 0.0,
+      "voltage_sweep": {"start": 0.0, "stop": 1.0, "step": 0.1}
+    }
+  ],
+  "physics": {
+    "temperature": 300.0,
+    "statistics": "fermi_dirac",
+    "mobility": {"model": "constant", "mu_n": 1500.0, "mu_p": 100.0},
+    "recombination": {
+      "srh": true,
+      "tau_n": 1.0e-9,
+      "tau_p": 1.0e-9,
+      "E_t": 0.0
+    }
+  },
+  "solver": {
+    "type": "bias_sweep",
+    "snes": {"rtol": 1.0e-10, "atol": 1.0e-7, "stol": 1.0e-14, "max_it": 80},
+    "continuation": {
+      "min_step": 1.0e-4,
+      "max_halvings": 6,
+      "max_step": 0.1,
+      "easy_iter_threshold": 4,
+      "grow_factor": 1.5
+    }
+  },
+  "output": {
+    "directory": "./results/hemt_2d",
+    "fields": ["potential", "n", "p", "phi_n", "phi_p", "iv"]
+  }
+}

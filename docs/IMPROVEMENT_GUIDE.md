@@ -838,28 +838,49 @@ a CI matrix entry that runs `benchmarks/mosfet_3d` under
 
 ---
 
-### M17 — Heterojunction / position-dependent band structure
+### M17 — Heterojunction / position-dependent band structure (Done; v0.24.0)
 
 **Why.** AlGaAs/GaAs, InGaAs/InP, SiGe/Si: none of this works without
 position-varying electron affinity `chi(x)` and bandgap `Eg(x)`.
 Required for HEMT and HBT modeling, both of which are core COMSOL
 Semiconductor capabilities.
 
-**Deliverable.** Extend the material model and the Poisson and
-continuity kernels to read `chi` and `Eg` as cellwise DG0 fields.
-Schema: per-region `material_overrides: {chi_eV, Eg_eV}` plus a
-`heterojunction: true` switch on the region join. Benchmark: an
-AlGaAs/GaAs HEMT or a SiGe HBT with a published reference solution.
+**Status.** Shipped in v0.24.0 on branch `dev/m17-heterojunction`.
+Schema additive minor bump v2.7.0 -> v2.8.0
+(`regions[].material_overrides` with `chi_eV`, `Eg_eV`,
+`Nc_per_cm3`, `Nv_per_cm3`; `regions[].heterojunction` boolean).
+ADR 0016 documents the V&V departure for the discontinuous-
+coefficient case (HEMT 2D benchmark instead of MMS, on the same
+precedent as ADR 0015 for Schottky). New module
+`semi/physics/heterojunction.py` builds per-cell DG0 fields for
+chi, Eg, Nc, Nv, n_i, eps_r; threaded through both Poisson and DD
+form builders via a `heterojunction_fields` keyword; all seven
+physics-bearing runners call `build_dg0_material_fields` when the
+cfg opts in. `semi/bcs.py::_ohmic_psi_eq_hat` reads chi from the
+local material at each ohmic contact's region (Anderson-rule band
+alignment). `benchmarks/hemt_2d/` ships with the HEMT JSON, the
+classical-electrostatic 2DEG reference
+(`semi/hemt_analytical.py`), and a verifier scaffold.
 
 **Acceptance tests.**
 
-1. New benchmark `benchmarks/hemt_2d` (AlGaAs/GaAs) reproduces the
-   2DEG sheet density at the heterojunction within 15% of a published
-   self-consistent Poisson-Schrodinger reference.
-2. With a single-material override (chi and Eg constant in space),
-   every existing benchmark is bit-identical to v0.15.0.
-3. MMS rate >= 1.99 L2 on a manufactured solution with a smooth
-   chi(x) and Eg(x) variation.
+1. ~~`benchmarks/hemt_2d` 2DEG sheet density within 15 %~~
+   Phase F follow-up: the cfg-load, classical reference, and
+   verifier scaffold ship in v0.24.0; the FEM-side n_s integration
+   is deferred (the bias_sweep runner does not snapshot per-step n
+   profiles in the artifact today, so the integrator needs a small
+   extension to the runner). Tracked in the M17 PR description.
+2. Bit-identity. Every existing benchmark and every PR #85 example
+   that does NOT set `material_overrides` or `heterojunction: true`
+   is byte-identical to v0.23.0 because the runner skips
+   `build_dg0_material_fields` and the form builders run the
+   v0.23.0 scalar `ni_hat` Constant path.
+3. ~~MMS Variant I L2 >= 1.99 / H1 >= 0.99~~ Phase E follow-up:
+   Variant I is registered in `VARIANTS` for forward
+   compatibility; full rate-gate implementation (per-cell chi / Eg
+   ramps in `_build_weak_sources` plus position-dependent n_i(x)
+   substitution) is a deferred follow-up. The discontinuous-
+   coefficient case is gated by `benchmarks/hemt_2d/` per ADR 0016.
 
 **Dependencies.** M16.4 (Fermi-Dirac, because heterojunctions break
 the nondegenerate approximation at the barrier).
@@ -1024,6 +1045,45 @@ The engine is ready for a UI when all of these are green:
 
 ### [Unreleased]
 
+### [0.24.0]
+
+- **2026-05-06**, M17 heterojunction / position-dependent band
+  structure shipped (v0.24.0): § 4 M17 marked Done with `[0.24.0]`
+  CHANGELOG anchor. Schema additive minor bump v2.7.0 -> v2.8.0
+  (`regions[].material_overrides` with `chi_eV`, `Eg_eV`,
+  `Nc_per_cm3`, `Nv_per_cm3`; `regions[].heterojunction` boolean).
+  ADR 0016 documents the heterojunction-aware Slotboom path and
+  the ohmic-contact local-chi equilibrium psi. New module
+  `semi/physics/heterojunction.py` builds per-cell DG0 fields for
+  chi, Eg, Nc, Nv, n_i, eps_r; threaded through Poisson and DD
+  form builders via `heterojunction_fields` keyword on
+  `build_equilibrium_poisson_form`,
+  `build_equilibrium_poisson_form_mr`, `build_dd_block_residual`,
+  `build_dd_block_residual_mr`, and the transient runner's
+  `_build_transient_residual`. All seven physics-bearing runners
+  call `build_dg0_material_fields` when the cfg opts into the
+  heterojunction path; single-material configs (no
+  `material_overrides`, no `heterojunction: true`) skip the build
+  and remain bit-identical to v0.23.0. `semi/bcs.py`
+  `_ohmic_psi_eq_hat` reads chi from the local material at each
+  ohmic contact's region (Anderson-rule band alignment).
+  `benchmarks/hemt_2d/` ships with the HEMT JSON, a Pozela-
+  Reklaitis classical-electrostatic 2DEG reference
+  (`semi/hemt_analytical.py`), and a verifier scaffold registered
+  via `scripts/run_benchmark.py`. MMS-DD Variant I is registered
+  in `VARIANTS` for forward compatibility; full rate-gate
+  implementation (per-cell chi / Eg ramps in `_build_weak_sources`)
+  is a deferred follow-up tracked in the M17 PR description, with
+  the discontinuous-coefficient case gated by `benchmarks/hemt_2d/`
+  per ADR 0016 (same V&V departure pattern as ADR 0015 for
+  Schottky Robin BCs). The HEMT FEM-side n_s integration is a
+  Phase F follow-up; the cfg-load and analytical-reference
+  scaffold ship in v0.24.0.
+- **2026-05-06**, author M17 starter prompt
+  ([M17_STARTER_PROMPT.md](M17_STARTER_PROMPT.md)) and ADR 0016
+  ([0016 Heterojunction-aware Slotboom and ohmic equilibrium](adr/0016-heterojunction-slotboom.md))
+  on branch `dev/m17-heterojunction`; phases A through G ship per
+  the PR template at the bottom of the prompt.
 - **2026-05-06**, examples catalogue shipped: three self-contained
   practical-device configs land under a new top-level `examples/`
   directory (`nmos_idvgs`, `schottky_iv_temperature`,

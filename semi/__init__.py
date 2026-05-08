@@ -15,7 +15,7 @@ The pure-Python modules (constants, materials, scaling, doping, schema)
 do not and can be imported and tested independently.
 """
 
-__version__ = "0.23.0"
+__version__ = "0.24.0"
 
 # Pure-Python imports, always safe (doping requires numpy so is not imported here)
 from . import constants, materials, scaling, schema

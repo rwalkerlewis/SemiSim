@@ -23,9 +23,75 @@ recombination kernel; shipped with `[0.19.0]` below), **2.4.0**
 with `[0.20.0]` below), **2.5.0** (additive minor; M16.5 Schottky
 contact type; shipped with `[0.21.0]` below), **2.6.0**
 (additive minor; M16.6 BBT and TAT tunneling dispatch; shipped
-with `[0.22.0]` below), and **2.7.0** (additive minor; M16.7
+with `[0.22.0]` below), **2.7.0** (additive minor; M16.7
 transient time-varying contact voltage `voltage_t`; shipped with
-`[0.23.0]` below).
+`[0.23.0]` below), and **2.8.0** (additive minor; M17 heterojunction
+/ position-dependent material parameters via `regions[].material_overrides`
+and `regions[].heterojunction`; shipped with `[0.24.0]` below).
+
+## [0.24.0] - 2026-05-06
+
+### Added
+
+- **M17: Heterojunction / position-dependent band structure.** The
+  largest single physics PR since M14.3. Promotes `n_i, N_C, N_V,
+  chi, Eg` from scalar fields on the reference material to
+  position-dependent cellwise DG0 fields on the mesh. Extends the
+  materials database with `AlGaAs_0p3` (Vurgaftman 2001 derived
+  parameters at x = 0.3, 300 K). Schema additive minor bump v2.7.0
+  -> v2.8.0 (`regions[].material_overrides` with `chi_eV`, `Eg_eV`,
+  `Nc_per_cm3`, `Nv_per_cm3`; `regions[].heterojunction` boolean).
+  ADR 0016 (`docs/adr/0016-heterojunction-slotboom.md`) documents the
+  heterojunction-aware Slotboom path: the substitution rule extends
+  from `n = n_i exp((psi - phi_n) / V_t)` to `n = n_i(x) exp((psi -
+  phi_n) / V_t)` without changing the continuity-flux shape, so
+  ADR 0004 is preserved. Composes orthogonally with M16.4
+  Fermi-Dirac (the FD prefactor `gamma_n` and the position-
+  dependent `n_i(x)` enter the same substitution slot).
+  - `semi/physics/heterojunction.py` builds per-cell DG0 fields for
+    chi, Eg, Nc, Nv, n_i, eps_r and is threaded through the Poisson
+    and DD form builders via a new `heterojunction_fields` keyword
+    on `build_equilibrium_poisson_form`,
+    `build_equilibrium_poisson_form_mr`, `build_dd_block_residual`,
+    `build_dd_block_residual_mr`, and the transient runner's
+    `_build_transient_residual`.
+  - All seven physics-bearing runners (`equilibrium`, `bias_sweep`,
+    `transient`, `ac_sweep`, `mos_cv`, `mos_cap_ac`, plus the
+    `resistor_3d`-via-`bias_sweep` path) call
+    `build_dg0_material_fields` when the cfg opts into the
+    heterojunction path.
+  - `semi/bcs.py` `_ohmic_psi_eq_hat` reads chi from the local
+    material at each ohmic contact's region (Anderson-rule band
+    alignment); single-material configs collapse to the v0.23.0
+    formula bit-identically because `chi_local == chi_ref`.
+  - `benchmarks/hemt_2d/` ships an AlGaAs/GaAs HEMT 2D acceptance
+    benchmark with a 15 % classical-electrostatic 2DEG sheet-density
+    gate (`semi/hemt_analytical.py::hemt_2deg_classical`); the
+    classical reference deliberately accepts the gap to a
+    fully-quantum Poisson-Schrodinger reference per ADR 0016.
+  - MMS-DD Variant I is registered in `VARIANTS` for forward
+    compatibility; the full rate-gate implementation (per-cell
+    chi / Eg ramps in `_build_weak_sources`, manufactured n_i(x)
+    substitution) is a deferred follow-up. The discontinuous-
+    coefficient case is gated by `benchmarks/hemt_2d/`, not MMS,
+    per ADR 0016 (the same V&V departure pattern as ADR 0015 for
+    the Schottky Robin BC).
+
+### Notes
+
+- Single-material configs (no `material_overrides`, no
+  `heterojunction: true`) are bit-identical to v0.23.0 on every
+  existing benchmark and every PR #85 example. The position-
+  dependent path collapses to the scalar single-material values
+  when the runner skips `build_dg0_material_fields` (which it
+  does when `cfg_uses_heterojunction(regions_cfg)` returns False).
+- The HEMT FEM-side n_s integration in `verify_hemt_2d` is the
+  Phase F follow-up tracked in the M17 PR description; the
+  benchmark JSON, classical reference, and verifier scaffold are
+  shipped in v0.24.0 so the heterojunction code paths are covered
+  by the cfg-load and analytical-reference tests.
+- The mosfet_2d CI matrix entry retains `allow-failure: "true"`
+  (carry-over from M16.1-M16.7).
 
 ## [Unreleased]
 

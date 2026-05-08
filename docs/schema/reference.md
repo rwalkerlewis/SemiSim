@@ -26,9 +26,9 @@ the full annotated source of truth is the JSON file.
   contact / mesh / solver fields fail validation rather than being
   silently dropped).
 - Minor/patch skew is accepted silently within a major.
-- Current schema version: **2.7.0** (M16.7 transient time-varying
-  contact voltage); v2.0.0 through v2.6.0 inputs continue to
-  validate (additive minors).
+- Current schema version: **2.8.0** (M17 heterojunction /
+  position-dependent material parameters); v2.0.0 through v2.7.0
+  inputs continue to validate (additive minors).
 
 Schemas are published to
 `https://rwalkerlewis.github.io/kronos-semi/schemas/` on every release
@@ -106,6 +106,23 @@ History:
   runners reject `voltage_t` at validate time. Configs without
   `voltage_t` are bit-identical to v0.22.0; v2.0.0 through v2.6.0
   inputs continue to validate.
+- **2.8.0** (M17): additive per-region material_overrides +
+  heterojunction switch (M17). Adds `regions[*].material_overrides`
+  (optional sub-object with `chi_eV`, `Eg_eV`, `Nc_per_cm3`,
+  `Nv_per_cm3`; any subset may be set to override the value from
+  `regions[*].material`) and `regions[*].heterojunction` (optional
+  bool, default `false`). When set, the position-dependent DG0
+  chi/Eg/Nc/Nv/n_i fields built by
+  `semi.physics.heterojunction.build_dg0_material_fields` pick up
+  the override values for that region; the ohmic-contact
+  equilibrium psi calculation in `semi/bcs.py` reads chi from the
+  local region's material instead of the reference material. The
+  AlGaAs_0p3 entry in `semi/materials.py` (Vurgaftman 2001 derived
+  parameters) ships in the same release. Configs without
+  `material_overrides` and without `heterojunction: true` are
+  bit-identical to v0.23.0 (the DG0 fields collapse to the
+  scalar single-material values). v2.0.0 through v2.7.0 inputs
+  continue to validate.
 
 ## Top-level fields
 

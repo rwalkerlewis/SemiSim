@@ -154,6 +154,95 @@ def resolve_contacts(
     return out
 
 
+def _ohmic_psi_eq_hat(
+    N_net_local: float,
+    ref_mat,
+    sc,
+    *,
+    local_n_i: float | None = None,
+    local_chi_eV: float | None = None,
+) -> float:
+    """Equilibrium psi at an ohmic contact in scaled units (psi / V_t).
+
+    Single-material formula (v0.23.0 baseline):
+
+        psi_eq_hat = asinh(N_net / (2 n_i_ref))
+
+    M17 generalization for heterojunctions: when an ohmic contact sits
+    in a region with `material_overrides` or a different database
+    material than the reference, the Anderson-rule band alignment adds
+    a `(chi_local - chi_ref)` term to the band-edge offset:
+
+        psi_eq_hat = (chi_local - chi_ref) / V_t
+                     + asinh(N_net / (2 n_i_local))
+
+    The single-material case is recovered when `local_chi_eV ==
+    ref_mat.chi` and `local_n_i == ref_mat.n_i`, so configs that do
+    not opt into the heterojunction path are byte-identical to v0.23.0
+    (callers pass `local_*` as None and this helper falls back to the
+    reference-material values).
+
+    See ADR 0016 for the V&V scope and the algebraic preservation of
+    the continuity-flux shape under position-dependent n_i(x).
+    """
+    n_i = float(local_n_i) if local_n_i is not None else float(ref_mat.n_i)
+    chi_local = (
+        float(local_chi_eV) if local_chi_eV is not None
+        else float(ref_mat.chi)
+    )
+    chi_shift_hat = (chi_local - float(ref_mat.chi)) / sc.V0
+    return chi_shift_hat + float(np.arcsinh(N_net_local / (2.0 * n_i)))
+
+
+def _resolve_local_region_for_facet(
+    msh, cell_tags, facets, fdim,
+) -> int | None:
+    """Return the cell-tag value of a cell adjacent to `facets[0]`.
+
+    Returns None when `cell_tags` is None or when the facet has no
+    adjacent cell carrying a tag (corner cases the v0.23.0 path
+    already tolerates because it never reads cell tags during BC
+    construction).
+    """
+    if cell_tags is None:
+        return None
+    tdim = msh.topology.dim
+    msh.topology.create_connectivity(fdim, tdim)
+    f2c = msh.topology.connectivity(fdim, tdim)
+    cells = f2c.links(int(facets[0]))
+    if len(cells) == 0:
+        return None
+    cell_idx = int(cells[0])
+    pos = np.where(cell_tags.indices == cell_idx)[0]
+    if pos.size == 0:
+        return None
+    return int(cell_tags.values[pos[0]])
+
+
+def _local_material_for_contact(
+    msh, facet_tags, cell_tags, regions_cfg, facets, fdim,
+):
+    """Resolve the per-region (with overrides) Material at `facets[0]`.
+
+    Returns a tuple `(chi_eV, n_i)` for the M17 ohmic-equilibrium psi
+    calculation, or `(None, None)` when the cell tag cannot be
+    resolved or when no matching region cfg is present (the BC builder
+    falls back to the reference-material values).
+    """
+    from .physics.heterojunction import _resolve_region_material
+    cell_tag = _resolve_local_region_for_facet(msh, cell_tags, facets, fdim)
+    if cell_tag is None or not isinstance(regions_cfg, dict):
+        return (None, None)
+    for region_cfg in regions_cfg.values():
+        if not isinstance(region_cfg, dict):
+            continue
+        if int(region_cfg.get("tag", -1)) != cell_tag:
+            continue
+        mat = _resolve_region_material(region_cfg)
+        return (float(mat.chi), float(mat.n_i))
+    return (None, None)
+
+
 def _schottky_psi_eq(contact: ContactBC, ref_mat, sc) -> float:
     """
     Equilibrium psi at a Schottky facet in scaled units (psi / V_t).
@@ -199,6 +288,9 @@ def build_psi_dirichlet_bcs(
     sc,
     ref_mat,
     N_raw_fn,
+    *,
+    regions_cfg: dict | None = None,
+    cell_tags=None,
 ) -> list:
     """
     Build the Dirichlet BC list for psi.
@@ -232,7 +324,19 @@ def build_psi_dirichlet_bcs(
         dofs = fem.locate_dofs_topological(V_psi, fdim, facets)
         if c.kind == "ohmic":
             N_net = _evaluate_doping_at_facet(msh, facets, fdim, N_raw_fn)
-            psi_eq_hat = float(np.arcsinh(N_net / (2.0 * ref_mat.n_i)))
+            # M17: when the cfg opts into the heterojunction path,
+            # resolve the local material at the contact facet so the
+            # Anderson-rule band-edge shift `(chi_local - chi_ref) / V_t`
+            # enters the equilibrium psi. Single-material configs
+            # collapse to the v0.23.0 formula bit-identically because
+            # local chi == ref chi and local n_i == ref n_i.
+            local_chi_eV, local_n_i = _local_material_for_contact(
+                msh, facet_tags, cell_tags, regions_cfg, facets, fdim,
+            )
+            psi_eq_hat = _ohmic_psi_eq_hat(
+                N_net, ref_mat, sc,
+                local_n_i=local_n_i, local_chi_eV=local_chi_eV,
+            )
             psi_bc = psi_eq_hat + c.V_applied / sc.V0
             bcs.append(fem.dirichletbc(PETSc.ScalarType(psi_bc), dofs, V_psi))
         elif c.kind == "gate":
@@ -255,6 +359,9 @@ def build_dd_dirichlet_bcs(
     sc,
     ref_mat,
     N_raw_fn,
+    *,
+    regions_cfg: dict | None = None,
+    cell_tags=None,
 ) -> list:
     """
     Build the Dirichlet BC list for the (psi, phi_n, phi_p) block
@@ -315,7 +422,16 @@ def build_dd_dirichlet_bcs(
 
         # Ohmic: Shockley boundary on the (psi, phi_n, phi_p) block.
         N_net = _evaluate_doping_at_facet(msh, facets, fdim, N_raw_fn)
-        psi_eq_hat = float(np.arcsinh(N_net / (2.0 * ref_mat.n_i)))
+        # M17: local-material chi shift on heterojunction-flavoured
+        # configs; single-material configs collapse to the v0.23.0
+        # formula because local chi == ref chi.
+        local_chi_eV, local_n_i = _local_material_for_contact(
+            msh, facet_tags, cell_tags, regions_cfg, facets, fdim,
+        )
+        psi_eq_hat = _ohmic_psi_eq_hat(
+            N_net, ref_mat, sc,
+            local_n_i=local_n_i, local_chi_eV=local_chi_eV,
+        )
         V_hat = c.V_applied / sc.V0
         psi_bc = psi_eq_hat + V_hat
         phi_bc = V_hat

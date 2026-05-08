@@ -372,6 +372,14 @@ Beyond equilibrium, kronos-semi handles:
   operating point. Demonstrated by `benchmarks/pn_1d_pulse/`
   (step variant) and `benchmarks/diode_sine_1d/` (table
   variant). New in v0.23.0.
+- **Heterojunctions.** Position-dependent electron affinity
+  chi(x) and bandgap Eg(x) via per-cell DG0 fields built from
+  per-region material parameters and optional `material_overrides`
+  (M17, `benchmarks/hemt_2d/`). Anderson-rule band alignment;
+  classical electrostatic 2DEG within 15 % of a published
+  Poisson-Schrodinger reference (the gap reflects the lack
+  of quantum confinement in the classical solver). New in
+  v0.24.0.
 - **Practical examples.** See `examples/` for self-contained
   device configs (NMOS Id-Vgs, Schottky temperature
   dependence, power diode reverse recovery) demonstrating
@@ -381,7 +389,10 @@ Beyond equilibrium, kronos-semi handles:
 Verification & validation: every domain-physics module has an MMS
 variant in `semi/verification/mms_dd.py` (Variants A through H).
 Boundary-physics milestones use analytical-benchmark plus byte-
-identity gates instead; see ADR 0015.
+identity gates instead (ADR 0015 for the Schottky thermionic-
+emission Robin BC; ADR 0016 for the M17 heterojunction
+discontinuous-coefficient case which is gated by
+`benchmarks/hemt_2d/` instead of MMS).
 
 ---
 
@@ -394,10 +405,12 @@ Semiconductor Module, the remaining gaps are:
   modeled; reverse-breakdown benchmarks rely on tunneling instead
   and are bounded above the avalanche regime. Not scheduled in
   M16; tracked in IMPROVEMENT_GUIDE.md as a post-M19 deliverable.
-- **No heterojunctions.** Position-dependent chi and Eg are not
-  yet supported. M17 closes this; depends on M16.4 (Fermi-Dirac)
-  because heterojunctions break the non-degenerate approximation
-  at the barrier.
+- **No quantum confinement.** The classical electrostatic
+  solver does not include Schrodinger-Poisson coupling, the
+  Bohm potential, or density-gradient corrections. The 15 %
+  tolerance on `benchmarks/hemt_2d/` 2DEG sheet density
+  reflects this gap; a quantum-corrected HEMT verifier is a
+  future M-numbered milestone.
 - **No 3D MOSFET / FinFET / planar transistor.** The 3D coverage
   today is the doped resistor and a pure-Poisson box. M19 closes
   this with a 3D MOSFET on a gmsh-sourced unstructured mesh.

@@ -177,6 +177,10 @@ def run_ac_sweep(cfg: dict[str, Any], *, progress_callback=None):
     from ..doping import build_profile
     from ..mesh import build_mesh
     from ..physics.drift_diffusion import build_dd_block_residual, make_dd_block_spaces
+    from ..physics.heterojunction import (
+        build_dg0_material_fields,
+        cfg_uses_heterojunction,
+    )
     from ..physics.slotboom import n_from_slotboom, p_from_slotboom
     from ..postprocess import resolve_contact_facets
     from ..results import AcSweepResult
@@ -225,7 +229,7 @@ def run_ac_sweep(cfg: dict[str, Any], *, progress_callback=None):
     # ------------------------------------------------------------------
     ref_mat = reference_material(cfg)
     sc = make_scaling_from_config(cfg, ref_mat)
-    msh, _cell_tags, facet_tags = build_mesh(cfg)
+    msh, cell_tags, facet_tags = build_mesh(cfg)
 
     N_raw_fn = build_profile(cfg["doping"])
     spaces = make_dd_block_spaces(msh)
@@ -289,11 +293,20 @@ def run_ac_sweep(cfg: dict[str, Any], *, progress_callback=None):
     # ------------------------------------------------------------------
     stat_cfg = {"statistics": phys.get("statistics", "boltzmann")}
 
+    # M17: build the per-cell DG0 material fields when the cfg opts in.
+    het_fields = None
+    if cfg_uses_heterojunction(cfg.get("regions", {})):
+        het_fields = build_dg0_material_fields(
+            msh, cell_tags, cfg["regions"], sc,
+            T=phys.get("temperature", 300.0),
+        )
+
     F_list = build_dd_block_residual(
         spaces, N_hat_fn, sc, ref_mat.epsilon_r,
         mu_n_hat, mu_p_hat, tau_n_hat_v, tau_p_hat_v, E_t_over_Vt,
         recomb_cfg=rec,
         statistics_cfg=stat_cfg,
+        heterojunction_fields=het_fields,
     )
     a_blocks = [
         [ufl.derivative(F_list[i], u_j) for u_j in (psi, phi_n, phi_p)]
@@ -324,6 +337,7 @@ def run_ac_sweep(cfg: dict[str, Any], *, progress_callback=None):
     contacts_dc = resolve_contacts(cfg, facet_tags=facet_tags, voltages=static_voltages)
     bcs_dc = build_dd_dirichlet_bcs(
         spaces, msh, facet_tags, contacts_dc, sc, ref_mat, N_raw_fn,
+        regions_cfg=cfg.get("regions"), cell_tags=cell_tags,
     )
 
     # Compiled forms for assembly.

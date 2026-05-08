@@ -143,7 +143,22 @@ ENGINE_SUPPORTED_SCHEMA_MAJOR = max(ENGINE_SUPPORTED_SCHEMA_MAJORS)
 #                  before the FEM path. v2.0.0 through v2.6.0 inputs
 #                  continue to validate; configs without voltage_t are
 #                  bit-identical to v0.22.0.
-SCHEMA_SUPPORTED_MINOR = 7
+#   M17 (2.8.0): added regions[*].material_overrides (optional sub-
+#                object with chi_eV, Eg_eV, Nc_per_cm3, Nv_per_cm3
+#                fields; any subset may be set to override the value
+#                from regions[*].material) and regions[*].heterojunction
+#                (optional bool, default false). When set, the position-
+#                dependent DG0 chi/Eg/Nc/Nv/n_i fields built by
+#                semi/physics/heterojunction.build_dg0_material_fields
+#                pick up the override values for that region; the
+#                ohmic-contact equilibrium psi calculation in
+#                semi/bcs.py reads chi from the local region's material
+#                instead of the reference material. v2.0.0 through
+#                v2.7.0 inputs continue to validate; configs without
+#                material_overrides and without heterojunction:true are
+#                bit-identical to v0.23.0 (the DG0 fields collapse to
+#                the scalar single-material values).
+SCHEMA_SUPPORTED_MINOR = 8
 
 
 @lru_cache(maxsize=8)
@@ -564,6 +579,17 @@ def _fill_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
     for contact in cfg.get("contacts", []):
         contact.setdefault("barrier_height_eV", None)
     _validate_schottky_contacts(cfg)
+
+    # M17: every region carries an explicit heterojunction flag (default
+    # false). Regions without material_overrides leave that field absent
+    # so consumers (semi/physics/heterojunction.py) can distinguish "no
+    # override" from "override set to default-shaped values"; the field
+    # is optional with no default.
+    regions = cfg.get("regions", {})
+    if isinstance(regions, dict):
+        for region_cfg in regions.values():
+            if isinstance(region_cfg, dict):
+                region_cfg.setdefault("heterojunction", False)
 
     solver = cfg.setdefault("solver", {})
     solver.setdefault("type", "equilibrium")

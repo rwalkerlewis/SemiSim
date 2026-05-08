@@ -80,6 +80,7 @@ def build_dd_block_residual(
     statistics_cfg: dict | None = None,
     schottky_facets: list | None = None,
     ref_mat=None,
+    heterojunction_fields: dict | None = None,
 ):
     """
     Build the three-block residual for the coupled drift-diffusion system.
@@ -186,11 +187,23 @@ def build_dd_block_residual(
 
     L_D2 = fem.Constant(msh, PETSc.ScalarType(sc.lambda2 * sc.L0 ** 2))
     L0_sq = fem.Constant(msh, PETSc.ScalarType(sc.L0 ** 2))
-    if isinstance(eps_r, (int, float)):
-        eps_r_ufl = fem.Constant(msh, PETSc.ScalarType(float(eps_r)))
+    # M17: when the runner detected heterojunction-flavoured regions
+    # (`material_overrides` or `heterojunction: true`), use the per-cell
+    # DG0 fields for `eps_r` and `n_i_hat`; otherwise the v0.23.0
+    # scalar/Function path runs unchanged. The substitution rule
+    # `n = n_i(x) exp((psi - phi_n) / V_t)` enters the Slotboom
+    # helpers automatically because they accept any UFL expression for
+    # `ni_hat`. ADR 0016 documents the algebraic preservation of the
+    # continuity-flux shape under position-dependent `n_i(x)`.
+    if heterojunction_fields is not None:
+        eps_r_ufl = heterojunction_fields["epsilon_r"]
+        ni_hat = heterojunction_fields["n_i_hat"]
     else:
-        eps_r_ufl = eps_r
-    ni_hat = fem.Constant(msh, PETSc.ScalarType(sc.n_i / sc.C0))
+        if isinstance(eps_r, (int, float)):
+            eps_r_ufl = fem.Constant(msh, PETSc.ScalarType(float(eps_r)))
+        else:
+            eps_r_ufl = eps_r
+        ni_hat = fem.Constant(msh, PETSc.ScalarType(sc.n_i / sc.C0))
     # The lombardi branch reads psi for the perpendicular field and
     # the absolute net doping field as N_total_hat. Other branches
     # ignore these kwargs.
@@ -574,6 +587,7 @@ def build_dd_block_residual_mr(
     statistics_cfg: dict | None = None,
     schottky_facets: list | None = None,
     ref_mat=None,
+    heterojunction_fields: dict | None = None,
 ):
     """Multi-region (submesh-based) block residual for the coupled DD system.
 
@@ -619,11 +633,23 @@ def build_dd_block_residual_mr(
 
     L_D2 = fem.Constant(msh, PETSc.ScalarType(sc.lambda2 * sc.L0 ** 2))
     L0_sq = fem.Constant(submesh, PETSc.ScalarType(sc.L0 ** 2))
-    if isinstance(eps_r, (int, float)):
-        eps_r_ufl = fem.Constant(msh, PETSc.ScalarType(float(eps_r)))
+    # M17: parent-mesh n_i and eps_r pick up the per-cell DG0 fields
+    # when the runner detected heterojunction-flavoured regions. The
+    # submesh n_i stays a scalar Constant under M17 because the only
+    # MR-path benchmarks (MOSCAP, MOSFET) do not configure
+    # heterojunctions on the silicon submesh; future MR-plus-
+    # heterojunction work would build a sub-mesh-restricted n_i field
+    # via `dolfinx.mesh.create_submesh` mappings, but that path is
+    # out of M17 scope.
+    if heterojunction_fields is not None:
+        eps_r_ufl = heterojunction_fields["epsilon_r"]
+        ni_hat_parent = heterojunction_fields["n_i_hat"]
     else:
-        eps_r_ufl = eps_r
-    ni_hat_parent = fem.Constant(msh, PETSc.ScalarType(sc.n_i / sc.C0))
+        if isinstance(eps_r, (int, float)):
+            eps_r_ufl = fem.Constant(msh, PETSc.ScalarType(float(eps_r)))
+        else:
+            eps_r_ufl = eps_r
+        ni_hat_parent = fem.Constant(msh, PETSc.ScalarType(sc.n_i / sc.C0))
     ni_hat_sub = fem.Constant(submesh, PETSc.ScalarType(sc.n_i / sc.C0))
     # The lombardi branch reads psi (parent-mesh electrostatic
     # potential) and the absolute net doping. Other branches ignore

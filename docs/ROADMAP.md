@@ -5,10 +5,12 @@ kronos-semi is a FEniCSx-based finite-element semiconductor device simulator tha
 ## Capability matrix
 
 All milestones M1 through M15 plus M14.3, M14.4, M16.1 through
-M16.7 have shipped as of v0.23.0. The M16 umbrella is complete.
-The table below is the current state; see the Delivery history
-section for per-milestone details. Planned milestones (M17, M19,
-M19.1, M20) have explicit acceptance tests in
+M16.7 have shipped as of v0.23.0; M17 (heterojunction /
+position-dependent band structure) ships in v0.24.0. The M16
+umbrella plus M17 close the position-dependent material parameter
+expansion. The table below is the current state; see the
+Delivery history section for per-milestone details. Planned
+milestones (M19, M19.1, M20) have explicit acceptance tests in
 [`docs/IMPROVEMENT_GUIDE.md`](IMPROVEMENT_GUIDE.md).
 
 | Capability | Dimensions | Status | Verifier |
@@ -42,7 +44,7 @@ M19.1, M20) have explicit acceptance tests in
 | Schottky contacts (M16.5) | 1D | shipped | schottky_1d slope `ln(J_FEM)` vs V matches 1/V_t within 5% (observed 2.46%) and `|J_FEM - J_thermionic|/J_thermionic < 5x` envelope absolute match (observed worst 278%) over V in [0.1, 0.5] V; ADR 0015 documents the V&V scope |
 | BBT and TAT tunneling (M16.6) | 1D | shipped | MMS-DD Variant H psi block L2 = 2.000 / H1 = 1.000 (1D); zener_1d ln-J slope sign indicating BBT firing (observed -0.279 per V) and 5x envelope `\|J_FEM - J_Kane\|/J_Kane` over V_R in [-8, -4] V (observed worst 99.88%); doping relaxed to N = 1e18 cm^-3 from the prompt's nominal 1e19 cm^-3 (deep-bias SNES convergence; tighter follow-up tracked in M16.7 backlog) |
 | Time-varying transient contact voltage (M16.7) | 1D | shipped | audit case 06 transient FFT vs AC sweep agreement within 5% (Hann-windowed FFT admittance ratio at V_DC = 0.4 V, F = 1 MHz, dV = 1 mV); pn_1d_pulse and diode_sine_1d demonstration benchmarks ship the schema variants |
-| Heterojunctions (M17) | 2D | Planned | hemt_2d 2DEG sheet density within 15% of self-consistent reference |
+| Heterojunctions (M17) | 2D | shipped | schema 2.8.0 `regions[].material_overrides` + `heterojunction` switch; AlGaAs_0p3 in materials database; `semi/physics/heterojunction.py` builds per-cell DG0 chi/Eg/Nc/Nv/n_i/eps_r fields threaded through Poisson and DD form builders; `semi/bcs.py` Anderson-rule local-chi ohmic equilibrium psi; ADR 0016; `benchmarks/hemt_2d/` classical-electrostatic 2DEG reference (FEM-side n_s integration is a Phase F follow-up) |
 | 3D MOSFET benchmark (M19) | 3D | Planned | Pao-Sah within 25% (linear); velsat within 30% (saturation); >=5x GPU speedup at 500k DOFs |
 | MPI parallel benchmark (M19.1) | 3D | Planned | mosfet_3d under mpiexec -n {1,2,4} same I_D within 1e-8; n=4 vs n=1 speedup >=2.5x |
 | HTTP server hardening (M20) | n/a | Planned | unauthenticated POST /solve returns 401; authenticated rate-limited 429 on overrun |
@@ -61,13 +63,16 @@ unstructured mesh, run on both CPU-MUMPS and GPU-AMGX backends; M19
 depends on M16.1 (Caughey-Thomas mobility) so saturation has any
 meaning.
 
-The physics catalogue is complete in the M16 umbrella. Field-
-dependent mobility (M16.1 / M16.2), Auger recombination (M16.3),
-Fermi-Dirac statistics (M16.4), Schottky contacts (M16.5), BBT /
-TAT tunneling (M16.6), and transient time-varying contact voltage
-with FFT-vs-AC audit (M16.7) have all shipped. Heterojunctions
-(position-dependent chi and Eg) are the next-tier physics gap and
-are tracked as M17.
+The physics catalogue is complete in the M16 umbrella plus M17.
+Field-dependent mobility (M16.1 / M16.2), Auger recombination
+(M16.3), Fermi-Dirac statistics (M16.4), Schottky contacts
+(M16.5), BBT / TAT tunneling (M16.6), transient time-varying
+contact voltage with FFT-vs-AC audit (M16.7), and heterojunction
+/ position-dependent band structure (M17) have all shipped.
+Quantum confinement corrections (Schrodinger-Poisson coupling,
+density-gradient, Bohm potential) are the next-tier physics gap;
+the 15 % HEMT 2DEG tolerance reflects this gap and a quantum-
+corrected verifier is a future M-numbered milestone.
 
 ## Scope vs. COMSOL Semiconductor Module
 

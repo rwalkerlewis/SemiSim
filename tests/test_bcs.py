@@ -270,3 +270,98 @@ def test_contact_bc_carries_barrier_height_field():
                   barrier_height_eV=0.85)
     assert a.barrier_height_eV == pytest.approx(0.85)
     assert a.kind == "schottky"
+
+
+# M17 Phase D: ohmic-equilibrium psi with local-material chi shift.
+
+def _scaling_for_si_test():
+    from semi.materials import get_material
+    from semi.scaling import Scaling
+    Si = get_material("Si")
+    return Si, Scaling(
+        L0=1.0e-6, C0=1.0e23, T=300.0,
+        mu0=Si.mu_n, n_i=Si.n_i, N_C=Si.Nc, N_V=Si.Nv,
+        m_n_star=Si.m_n_star, m_p_star=Si.m_p_star, E_g=Si.Eg,
+    )
+
+
+def test_ohmic_psi_eq_hat_no_overrides_matches_v0_23_0():
+    """When `local_chi_eV` and `local_n_i` are both None, the helper
+    returns the v0.23.0 single-material formula bit-identically."""
+    import math
+
+    import numpy as np
+
+    from semi.bcs import _ohmic_psi_eq_hat
+
+    Si, sc = _scaling_for_si_test()
+    N_net = 1.0e23
+    expected = float(np.arcsinh(N_net / (2.0 * Si.n_i)))
+    got = _ohmic_psi_eq_hat(N_net, Si, sc)
+    assert math.isclose(got, expected, rel_tol=1e-12, abs_tol=0.0)
+
+
+def test_ohmic_psi_eq_hat_chi_shift_local_equals_ref():
+    """Passing the reference material's own chi / n_i as the local
+    values must collapse to the v0.23.0 formula. Regression gate for
+    byte-identity on every existing benchmark (no benchmark uses
+    overrides)."""
+    import math
+
+    import numpy as np
+
+    from semi.bcs import _ohmic_psi_eq_hat
+
+    Si, sc = _scaling_for_si_test()
+    N_net = 5.0e22
+    expected = float(np.arcsinh(N_net / (2.0 * Si.n_i)))
+    got = _ohmic_psi_eq_hat(
+        N_net, Si, sc,
+        local_chi_eV=Si.chi, local_n_i=Si.n_i,
+    )
+    assert math.isclose(got, expected, rel_tol=1e-12, abs_tol=0.0)
+
+
+def test_ohmic_psi_eq_hat_chi_shift_anderson_rule():
+    """A 0.5 eV shift in the local material's chi translates into a
+    `0.5 / V_t` additive shift in the dimensionless psi. This is the
+    Anderson-rule band alignment (M17, ADR 0016)."""
+    import math
+
+    from semi.bcs import _ohmic_psi_eq_hat
+
+    Si, sc = _scaling_for_si_test()
+    N_net = 5.0e22
+    baseline = _ohmic_psi_eq_hat(N_net, Si, sc)
+    chi_local = Si.chi - 0.5
+    shifted = _ohmic_psi_eq_hat(
+        N_net, Si, sc,
+        local_chi_eV=chi_local, local_n_i=Si.n_i,
+    )
+    expected_shift = (chi_local - Si.chi) / sc.V0
+    assert math.isclose(shifted - baseline, expected_shift,
+                        rel_tol=1e-12, abs_tol=0.0)
+    # The chi-shift contribution must be many V_t units (a 0.5 eV shift
+    # at 300 K is ~19 V_t units), so this is not a numerical trivium.
+    assert abs(shifted - baseline) > 5.0
+
+
+def test_ohmic_psi_eq_hat_local_n_i_change():
+    """Lowering local n_i (wider gap, e.g. AlGaAs) increases the
+    `asinh(N_net / (2 n_i))` term, biasing the contact more strongly
+    in the same doping environment."""
+    from semi.bcs import _ohmic_psi_eq_hat
+
+    Si, sc = _scaling_for_si_test()
+    N_net = 1.0e22
+    baseline = _ohmic_psi_eq_hat(N_net, Si, sc)
+    # AlGaAs_0p3-ish: ~7 orders of magnitude smaller n_i.
+    shifted = _ohmic_psi_eq_hat(
+        N_net, Si, sc,
+        local_chi_eV=Si.chi, local_n_i=Si.n_i * 1.0e-7,
+    )
+    assert shifted > baseline
+    # The shift is `asinh(N / (2 n_i_smaller)) - asinh(N / (2 n_i))`,
+    # which grows logarithmically; for a 1e7 ratio in n_i the shift
+    # is on the order of `ln(1e7)` ~= 16 (in V_t units).
+    assert (shifted - baseline) > 10.0

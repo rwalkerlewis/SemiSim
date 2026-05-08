@@ -30,10 +30,16 @@ current expression (see ADR 0004 derivation note) means no FD-specific
 correction enters the residual beyond the `n` / `p` substitution.
 
 UFL expressions in this module work with either dolfinx Functions or
-fem.Constants for `psi`, `phi_n`, `phi_p`. The NumPy helpers are pure
-Python and are imported for tests and post-processing. This module must
-remain independent of the FE space construction; it builds expressions,
-not Forms.
+fem.Constants for `psi`, `phi_n`, `phi_p`. Under M17 the `n_i_hat`
+argument may also be a position-dependent `dolfinx.fem.Function`
+(typically a DG0 cellwise field built by
+`semi.physics.heterojunction.build_dg0_material_fields`); the
+generalized-Slotboom substitution `n = n_i(x) * exp((psi - phi_n) /
+V_t)` extends without changing the continuity-flux shape (ADR 0016
+preserves ADR 0004). The NumPy helpers are pure Python and are
+imported for tests and post-processing. This module must remain
+independent of the FE space construction; it builds expressions, not
+Forms.
 """
 from __future__ import annotations
 

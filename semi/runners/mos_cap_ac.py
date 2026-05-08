@@ -79,6 +79,10 @@ def run_mos_cap_ac(cfg: dict[str, Any], *, progress_callback=None):
     from ..doping import build_profile
     from ..mesh import build_eps_r_function, build_mesh
     from ..physics.axisymmetric import build_equilibrium_poisson_form_axisym_mr
+    from ..physics.heterojunction import (
+        build_dg0_material_fields,
+        cfg_uses_heterojunction,
+    )
     from ..physics.poisson import build_equilibrium_poisson_form_mr
     from ..run import SimulationResult
     from ..scaling import make_scaling_from_config
@@ -113,6 +117,17 @@ def run_mos_cap_ac(cfg: dict[str, Any], *, progress_callback=None):
 
     phys = cfg.get("physics", {})
     stat_cfg = {"statistics": phys.get("statistics", "boltzmann")}
+    # M17: build the per-cell DG0 fields when the cfg opts in. The
+    # axisymmetric MOS form builder does not yet accept the
+    # heterojunction_fields kwarg (axisym MOS-on-heterojunction is not
+    # an existing benchmark and was not in M17 scope); the cartesian
+    # MR form builder threads them through.
+    het_fields = None
+    if cfg_uses_heterojunction(cfg.get("regions", {})):
+        het_fields = build_dg0_material_fields(
+            msh, cell_tags, cfg["regions"], sc,
+            T=phys.get("temperature", 300.0),
+        )
     if is_axisym:
         F = build_equilibrium_poisson_form_axisym_mr(
             V_psi, psi, N_hat_fn, sc, eps_r_fn, cell_tags, semi_tag,
@@ -122,6 +137,7 @@ def run_mos_cap_ac(cfg: dict[str, Any], *, progress_callback=None):
         F = build_equilibrium_poisson_form_mr(
             V_psi, psi, N_hat_fn, sc, eps_r_fn, cell_tags, semi_tag,
             statistics_cfg=stat_cfg,
+            heterojunction_fields=het_fields,
         )
 
     sweep_contact, sweep_values = _resolve_gate_sweep(cfg)
@@ -235,6 +251,7 @@ def run_mos_cap_ac(cfg: dict[str, Any], *, progress_callback=None):
         contacts = resolve_contacts(cfg, facet_tags=facet_tags, voltages=voltages)
         bcs = build_psi_dirichlet_bcs(
             V_psi, msh, facet_tags, contacts, sc, ref_mat, N_raw_fn,
+            regions_cfg=cfg.get("regions"), cell_tags=cell_tags,
         )
         for bc in bcs:
             bc.set(psi.x.array)

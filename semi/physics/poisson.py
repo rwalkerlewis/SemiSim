@@ -23,7 +23,8 @@ from __future__ import annotations
 
 
 def build_equilibrium_poisson_form(V, psi, N_hat_fn, sc, eps_r,
-                                   *, statistics_cfg=None):
+                                   *, statistics_cfg=None,
+                                   heterojunction_fields=None):
     """
     Build the UFL residual form for equilibrium Poisson.
 
@@ -76,11 +77,23 @@ def build_equilibrium_poisson_form(V, psi, N_hat_fn, sc, eps_r,
     # coordinate is left in meters so that mesh extents and facet locations
     # from the JSON can be specified in SI units.
     L_D2 = fem.Constant(msh, PETSc.ScalarType(sc.lambda2 * sc.L0 ** 2))
-    if isinstance(eps_r, (int, float)):
-        eps_r_ufl = fem.Constant(msh, PETSc.ScalarType(float(eps_r)))
+    # M17: when `heterojunction_fields` is provided (the runner detected
+    # at least one region with `material_overrides` or
+    # `heterojunction: true`), replace the scalar `eps_r` and `n_i_hat`
+    # constants with cellwise DG0 fields so the Poisson coefficient and
+    # the equilibrium space-charge term pick up the per-region material
+    # parameters at quadrature. Configurations without either field
+    # never reach this branch (the runner passes `heterojunction_fields=
+    # None` for v0.23.0-shape inputs), preserving byte-identity.
+    if heterojunction_fields is not None:
+        eps_r_ufl = heterojunction_fields["epsilon_r"]
+        ni_hat = heterojunction_fields["n_i_hat"]
     else:
-        eps_r_ufl = eps_r
-    ni_hat = fem.Constant(msh, PETSc.ScalarType(sc.n_i / sc.C0))
+        if isinstance(eps_r, (int, float)):
+            eps_r_ufl = fem.Constant(msh, PETSc.ScalarType(float(eps_r)))
+        else:
+            eps_r_ufl = eps_r
+        ni_hat = fem.Constant(msh, PETSc.ScalarType(sc.n_i / sc.C0))
 
     rho_hat = _equilibrium_space_charge(
         psi, ni_hat, N_hat_fn, sc, statistics_cfg, msh,
@@ -132,6 +145,7 @@ def _equilibrium_space_charge(psi, ni_hat, N_hat_fn, sc, statistics_cfg, msh):
 def build_equilibrium_poisson_form_mr(
     V, psi, N_hat_fn, sc, eps_r_fn, cell_tags, semi_tag,
     *, statistics_cfg=None,
+    heterojunction_fields=None,
 ):
     """
     Build the UFL residual for multi-region equilibrium Poisson (MOS).
@@ -158,7 +172,15 @@ def build_equilibrium_poisson_form_mr(
     v = ufl.TestFunction(V)
 
     L_D2 = fem.Constant(msh, PETSc.ScalarType(sc.lambda2 * sc.L0 ** 2))
-    ni_hat = fem.Constant(msh, PETSc.ScalarType(sc.n_i / sc.C0))
+    # M17: per-region n_i and eps_r when the runner detected
+    # heterojunction-flavoured regions; falls back to the v0.23.0 path
+    # otherwise.
+    if heterojunction_fields is not None:
+        ni_hat = heterojunction_fields["n_i_hat"]
+        eps_r_used = heterojunction_fields["epsilon_r"]
+    else:
+        ni_hat = fem.Constant(msh, PETSc.ScalarType(sc.n_i / sc.C0))
+        eps_r_used = eps_r_fn
 
     dx_full = ufl.Measure("dx", domain=msh)
     dx_semi = ufl.Measure(
@@ -170,7 +192,7 @@ def build_equilibrium_poisson_form_mr(
     )
 
     F = (
-        L_D2 * eps_r_fn * ufl.inner(ufl.grad(psi), ufl.grad(v)) * dx_full
+        L_D2 * eps_r_used * ufl.inner(ufl.grad(psi), ufl.grad(v)) * dx_full
         - rho_hat * v * dx_semi
     )
     return F

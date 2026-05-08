@@ -19,6 +19,10 @@ def run_equilibrium(cfg: dict[str, Any], *, progress_callback=None):
     from ..bcs import build_psi_dirichlet_bcs, resolve_contacts
     from ..doping import build_profile
     from ..mesh import build_mesh
+    from ..physics.heterojunction import (
+        build_dg0_material_fields,
+        cfg_uses_heterojunction,
+    )
     from ..physics.poisson import build_equilibrium_poisson_form
     from ..run import SimulationResult
     from ..scaling import make_scaling_from_config
@@ -28,7 +32,7 @@ def run_equilibrium(cfg: dict[str, Any], *, progress_callback=None):
     ref_mat = reference_material(cfg)
     sc = make_scaling_from_config(cfg, ref_mat)
 
-    msh, _cell_tags, facet_tags = build_mesh(cfg)
+    msh, cell_tags, facet_tags = build_mesh(cfg)
     V = fem.functionspace(msh, ("Lagrange", 1))
 
     N_raw_fn = build_profile(cfg["doping"])
@@ -41,7 +45,10 @@ def run_equilibrium(cfg: dict[str, Any], *, progress_callback=None):
 
     psi = fem.Function(V, name="psi_hat")
     contacts = resolve_contacts(cfg, facet_tags=facet_tags)
-    bcs = build_psi_dirichlet_bcs(V, msh, facet_tags, contacts, sc, ref_mat, N_raw_fn)
+    bcs = build_psi_dirichlet_bcs(
+        V, msh, facet_tags, contacts, sc, ref_mat, N_raw_fn,
+        regions_cfg=cfg.get("regions"), cell_tags=cell_tags,
+    )
 
     two_ni = 2.0 * ref_mat.n_i
 
@@ -55,9 +62,18 @@ def run_equilibrium(cfg: dict[str, Any], *, progress_callback=None):
 
     phys = cfg.get("physics", {})
     stat_cfg = {"statistics": phys.get("statistics", "boltzmann")}
+    # M17: build the per-cell DG0 chi/Eg/Nc/Nv/n_i/eps_r fields when the
+    # cfg opts into the heterojunction path; otherwise pass None and the
+    # form builder runs the v0.23.0 scalar `ni_hat` Constant path.
+    het_fields = None
+    if cfg_uses_heterojunction(cfg.get("regions", {})):
+        het_fields = build_dg0_material_fields(
+            msh, cell_tags, cfg["regions"], sc, T=phys.get("temperature", 300.0),
+        )
     F = build_equilibrium_poisson_form(
         V, psi, N_hat_fn, sc, ref_mat.epsilon_r,
         statistics_cfg=stat_cfg,
+        heterojunction_fields=het_fields,
     )
     if progress_callback is not None:
         progress_callback({"type": "step_started", "bias_step": 0, "V_applied": 0.0})

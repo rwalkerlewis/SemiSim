@@ -137,6 +137,10 @@ def run_transient(
     from ..doping import build_profile
     from ..mesh import build_mesh
     from ..physics.drift_diffusion import make_dd_block_spaces
+    from ..physics.heterojunction import (
+        build_dg0_material_fields,
+        cfg_uses_heterojunction,
+    )
     from ..physics.slotboom import n_from_slotboom_np, p_from_slotboom_np
     from ..postprocess import (
         evaluate_partial_currents,
@@ -209,7 +213,7 @@ def run_transient(
     ref_mat = reference_material(cfg)
     sc = make_scaling_from_config(cfg, ref_mat)
 
-    msh, _cell_tags, facet_tags = build_mesh(cfg)
+    msh, cell_tags, facet_tags = build_mesh(cfg)
 
     N_raw_fn = build_profile(cfg["doping"])
 
@@ -346,6 +350,17 @@ def run_transient(
 
     stat_cfg = {"statistics": phys.get("statistics", "boltzmann")}
 
+    # M17: build heterojunction DG0 fields once at runner setup so the
+    # transient residual sees position-dependent n_i / eps_r when the
+    # cfg opts in. Configs without material_overrides / heterojunction
+    # are bit-identical to v0.23.0 because het_fields stays None.
+    het_fields = None
+    if cfg_uses_heterojunction(cfg.get("regions", {})):
+        het_fields = build_dg0_material_fields(
+            msh, cell_tags, cfg["regions"], sc,
+            T=phys.get("temperature", 300.0),
+        )
+
     F_list = _build_transient_residual(
         psi, phi_n, phi_p, N_hat_fn, f_hist_n, f_hist_p,
         spaces, sc, ref_mat.epsilon_r,
@@ -353,6 +368,7 @@ def run_transient(
         dt_const, alpha0_const,
         recomb_cfg=rec,
         statistics_cfg=stat_cfg,
+        heterojunction_fields=het_fields,
     )
 
     # ------------------------------------------------------------------
@@ -364,6 +380,7 @@ def run_transient(
                                     voltages=voltages)
         return build_dd_dirichlet_bcs(
             spaces, msh, facet_tags, contacts, sc, ref_mat, N_raw_fn,
+            regions_cfg=cfg.get("regions"), cell_tags=cell_tags,
         )
 
     def _apply_bc_values(bcs: list):
@@ -577,6 +594,7 @@ def _build_transient_residual(
     *,
     recomb_cfg: dict | None = None,
     statistics_cfg: dict | None = None,
+    heterojunction_fields: dict | None = None,
 ):
     """
     Build the three-block transient residual in Slotboom form.
@@ -631,12 +649,18 @@ def _build_transient_residual(
 
     L_D2 = fem.Constant(msh, PETSc.ScalarType(sc.lambda2 * sc.L0 ** 2))
     L0_sq = fem.Constant(msh, PETSc.ScalarType(sc.L0 ** 2))
-    if isinstance(eps_r, (int, float)):
-        eps_r_ufl = fem.Constant(msh, PETSc.ScalarType(float(eps_r)))
+    # M17: heterojunction DG0 fields override the scalar eps_r and
+    # n_i_hat when the cfg opts in. The Slotboom n / p substitutions
+    # below pick up the per-cell n_i automatically (see ADR 0016).
+    if heterojunction_fields is not None:
+        eps_r_ufl = heterojunction_fields["epsilon_r"]
+        ni_hat_c = heterojunction_fields["n_i_hat"]
     else:
-        eps_r_ufl = eps_r
-
-    ni_hat_c = fem.Constant(msh, PETSc.ScalarType(sc.n_i / sc.C0))
+        if isinstance(eps_r, (int, float)):
+            eps_r_ufl = fem.Constant(msh, PETSc.ScalarType(float(eps_r)))
+        else:
+            eps_r_ufl = eps_r
+        ni_hat_c = fem.Constant(msh, PETSc.ScalarType(sc.n_i / sc.C0))
     mu_n_c = fem.Constant(msh, PETSc.ScalarType(mu_n_over_mu0))
     mu_p_c = fem.Constant(msh, PETSc.ScalarType(mu_p_over_mu0))
     tau_n_c = fem.Constant(msh, PETSc.ScalarType(tau_n_hat))

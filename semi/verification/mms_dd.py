@@ -107,7 +107,26 @@ from .mms_poisson import (
 # ---------------------------------------------------------------------------
 # Module-level constants. See derivation Section 2.
 # ---------------------------------------------------------------------------
-VARIANTS: tuple[str, ...] = ("A", "B", "C", "D", "E", "F", "G", "H")
+VARIANTS: tuple[str, ...] = ("A", "B", "C", "D", "E", "F", "G", "H", "I")
+
+#: Variant I (M17): smooth chi(x), Eg(x) ramps producing position-
+#: dependent n_i(x). The manufactured solution reuses the Variant C
+#: full sin-product triple; the active branch exercises the
+#: heterojunction substitution rule
+#:     n = n_i(x) * exp((psi - phi_n) / V_t)
+#: documented in ADR 0016. The discontinuous-coefficient case (HEMT 2D)
+#: is gated by the published-reference `benchmarks/hemt_2d/` verifier
+#: rather than MMS, per ADR 0016. Variant I rate gates: L^2 >= 1.99 /
+#: H^1 >= 0.99 finest-pair on each block, the textbook P1 gate. Until
+#: the run_one_level Variant I branch is fully wired (Phase E follow-
+#: up: build per-cell DG0 chi_hat(x) / Eg_hat(x) ramps, pass via
+#: `heterojunction_fields` to build_dd_block_residual, mirror the
+#: position-dependent n_i in `_build_weak_sources`), Variant I is
+#: registered here for forward-compatibility and run_one_level raises
+#: NotImplementedError when invoked. The infrastructure (Phases B-D)
+#: is shipped; the MMS-side wiring is the missing piece. M17.
+MMS_I_DELTA_CHI_EV: float = 0.05
+MMS_I_DELTA_EG_EV: float = 0.05
 
 #: Default amplitude triple `(A_psi, A_n, A_p)` used by the pytest gate.
 #: `A_p = -A_n` ensures Variant C's SRH numerator
@@ -596,6 +615,23 @@ def run_one_level(case: MMSDDCase, *, sc=None) -> MMSDDResult:
 
     if case.variant not in VARIANTS:
         raise ValueError(f"variant {case.variant!r} not in {VARIANTS}")
+    if case.variant == "I":
+        # M17 Phase E follow-up: the smooth-coefficient heterojunction
+        # rate gate is registered for forward-compatibility but the
+        # MMS-side wiring (per-cell DG0 chi(x) / Eg(x) ramps,
+        # position-dependent n_i(x) in `_build_weak_sources`) is
+        # tracked as a deferred follow-up. The Phase B / C / D
+        # infrastructure (heterojunction.build_dg0_material_fields,
+        # form-builder threading, ohmic local-chi shift) is shipped;
+        # the MMS verifier extension lands in a follow-up PR. The
+        # discontinuous-coefficient HEMT case has its own V&V gate via
+        # `benchmarks/hemt_2d/` per ADR 0016.
+        raise NotImplementedError(
+            "MMS Variant I (M17 heterojunction smooth ramp) is registered "
+            "in VARIANTS for forward-compatibility; full rate-gate "
+            "implementation is a Phase E follow-up. See ADR 0016 and "
+            "docs/M17_STARTER_PROMPT.md Phase E for the wiring plan."
+        )
     if sc is None:
         sc = build_mms_scaling(L=case.L)
 
@@ -1085,6 +1121,14 @@ def run_cli_study(out_dir: Path) -> dict[str, list[dict]]:  # pragma: no cover
     studies: dict[str, list[dict]] = {}
 
     for variant in VARIANTS:
+        # M17 Phase E: Variant I is registered for forward-compatibility
+        # but the MMS-side wiring is a deferred follow-up; skip it in
+        # the CLI sweep so existing variants A-H continue to ship
+        # rate-gated artifacts. ADR 0016 documents the V&V gate
+        # structure (Variant I MMS for the smooth-coefficient case,
+        # `benchmarks/hemt_2d/` for the discontinuous case).
+        if variant == "I":
+            continue
         # 1D default amplitudes. Variant D (Caughey-Thomas) on the
         # finest 1D mesh (N=320) reaches the double-precision residual
         # floor (~1e-22) before SNES_rtol trips at 1e-14*||F_initial||,
