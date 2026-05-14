@@ -1,7 +1,7 @@
 """
 Physical constants (SI, 2019 redefinition values) and unit-conversion helpers.
 
-Unit convention throughout kronos-semi:
+Unit convention throughout SemiSim:
     - Lengths: meters
     - Potentials: volts
     - Densities: m^-3 internally (JSON input is cm^-3 per device-physics tradition)

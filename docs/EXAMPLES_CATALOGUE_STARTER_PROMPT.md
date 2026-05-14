@@ -1,8 +1,8 @@
 ## Context
 
-You are working in `kronos-semi` at `v0.23.0` (post-M16.7, package
+You are working in `SemiSim` at `v0.23.0` (post-M16.7, package
 version `0.23.0`, schema `2.7.0`). The repo is at
-`https://github.com/rwalkerlewis/kronos-semi`; `main` is at
+`https://github.com/rwalkerlewis/SemiSim`; `main` is at
 `1a372b5` (`M16.7: Time-varying transient contact voltage (#84)`).
 
 Your assignment is **the examples catalogue** — a new

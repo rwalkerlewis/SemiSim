@@ -1,9 +1,9 @@
-"""FastAPI application factory + `kronos-server` entry point.
+"""FastAPI application factory + `semisim-server` entry point.
 
 The server process deliberately does NOT import dolfinx, UFL, or PETSc at
 module scope. FEM-heavy imports happen only inside worker subprocesses
 spawned by `jobs.JobManager`, so a developer without dolfinx can still run
-`kronos-server` and get a useful 503 on `/ready` instead of an ImportError
+`semisim-server` and get a useful 503 on `/ready` instead of an ImportError
 at startup.
 """
 from __future__ import annotations
@@ -34,9 +34,9 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             job_mgr.shutdown()
 
     app = FastAPI(
-        title="kronos-semi HTTP server",
+        title="SemiSim HTTP server",
         version="0.10.0",
-        description="HTTP API for the kronos-semi FEM semiconductor device simulator.",
+        description="HTTP API for the SemiSim FEM semiconductor device simulator.",
         lifespan=lifespan,
     )
 

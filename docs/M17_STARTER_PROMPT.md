@@ -1,9 +1,9 @@
 ## Context
 
-You are working in `kronos-semi` at `v0.23.0` (post-M16.7, post-
+You are working in `SemiSim` at `v0.23.0` (post-M16.7, post-
 examples-catalogue PR #85, package version `0.23.0`, schema
 `2.7.0`). The repo is at
-`https://github.com/rwalkerlewis/kronos-semi`; `main` is at
+`https://github.com/rwalkerlewis/SemiSim`; `main` is at
 `3a23383` (`examples: catalogue of practical device configs (#85)`).
 
 Your assignment is **M17: Heterojunction / position-dependent
@@ -971,7 +971,7 @@ exits 0 with the 15 % 2DEG match passing on every V_GS in
 - [ ] `make_scaling_from_config` still on every solve path;
       heterojunction.build_dg0_material_fields composes on
       top of it.
-- [ ] No PETSc / UFL types leak into `kronos_server` public
+- [ ] No PETSc / UFL types leak into `semisim_server` public
       API.
 - [ ] Schema bumped per minor (2.7.0 to 2.8.0); v2.0.0
       through v2.7.0 inputs still validate.

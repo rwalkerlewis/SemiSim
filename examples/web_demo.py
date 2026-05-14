@@ -1,7 +1,7 @@
 """
-Web interface demo for kronos-semi.
+Web interface demo for SemiSim.
 
-Starts the kronos-server in the background, opens a browser tab pointing at
+Starts the semisim-server in the background, opens a browser tab pointing at
 a self-contained HTML dashboard with a benchmark selector dropdown, then:
 
   1. User selects a benchmark from the dropdown
@@ -16,7 +16,7 @@ Run from the repo root:
 The server is shut down automatically when the script exits (Ctrl-C or
 natural completion).
 
-Requirements: the kronos-semi:ci Docker image must be present locally.
+Requirements: the semisim:ci Docker image must be present locally.
 """
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ DASHBOARD_HTML = textwrap.dedent(f"""\
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>kronos-semi live demo</title>
+<title>SemiSim live demo</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <style>
   body {{font-family:monospace;background:#111;color:#eee;padding:1.5rem;max-width:1100px;}}
@@ -112,7 +112,7 @@ DASHBOARD_HTML = textwrap.dedent(f"""\
 </style>
 </head>
 <body>
-<h1>kronos-semi &mdash; live web interface demo</h1>
+<h1>SemiSim &mdash; live web interface demo</h1>
 <p>
   Server: <a href="http://{SERVER_HOST}:{SERVER_PORT}/docs" target="_blank">
     http://{SERVER_HOST}:{SERVER_PORT}/docs
@@ -697,9 +697,9 @@ class _DashboardHandler(http.server.BaseHTTPRequestHandler):
                 bench_path = self.benchmarks[name]
                 cfg = json.loads(bench_path.read_bytes())
                 # Rewrite relative mesh paths to absolute Docker-side paths so
-                # the server (running in Docker at /workspaces/kronos-semi) can
+                # the server (running in Docker at /workspaces/SemiSim) can
                 # find them.  The repo root on the host maps to
-                # /workspaces/kronos-semi inside the container.
+                # /workspaces/SemiSim inside the container.
                 mesh = cfg.get("mesh", {})
                 if mesh.get("source") == "file":
                     mp = mesh.get("path", "")
@@ -709,7 +709,7 @@ class _DashboardHandler(http.server.BaseHTTPRequestHandler):
                         # Translate host absolute path → Docker absolute path.
                         try:
                             rel = abs_host.relative_to(REPO_ROOT)
-                            cfg["mesh"]["path"] = f"/workspaces/kronos-semi/{rel}"
+                            cfg["mesh"]["path"] = f"/workspaces/SemiSim/{rel}"
                         except ValueError:
                             pass  # path outside repo, leave as-is
                 content = json.dumps(cfg).encode()
@@ -747,7 +747,7 @@ def _serve_dashboard(
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    print("kronos-semi web interface demo")
+    print("SemiSim web interface demo")
     print("=" * 40)
 
     benchmarks = _discover_benchmarks()
@@ -761,19 +761,19 @@ def main() -> None:
     dashboard_url = f"http://127.0.0.1:{DASHBOARD_PORT}/"
     print(f"[demo] Dashboard served at {dashboard_url}")
 
-    # Start kronos-server inside the Docker image so FEM + server deps are
+    # Start semisim-server inside the Docker image so FEM + server deps are
     # available without any host-side installation.
     docker_cmd = [
         "docker", "run", "--rm",
         "-p", f"{SERVER_PORT}:{SERVER_PORT}",
-        "-v", f"{REPO_ROOT}:/workspaces/kronos-semi",
-        "-w", "/workspaces/kronos-semi",
-        "-e", f"KRONOS_SERVER_HOST=0.0.0.0",
-        "-e", f"KRONOS_SERVER_PORT={SERVER_PORT}",
-        "-e", "KRONOS_SERVER_WORKERS=1",
-        "-e", "KRONOS_SERVER_RUNS_DIR=/workspaces/kronos-semi/runs",        "-e", f"KRONOS_SERVER_CORS_ORIGINS=http://127.0.0.1:{DASHBOARD_PORT},http://localhost:{DASHBOARD_PORT}",        "-e", "MPLBACKEND=Agg",
-        "kronos-semi:ci",
-        "python", "-m", "uvicorn", "kronos_server.app:build_app",
+        "-v", f"{REPO_ROOT}:/workspaces/SemiSim",
+        "-w", "/workspaces/SemiSim",
+        "-e", f"SEMISIM_SERVER_HOST=0.0.0.0",
+        "-e", f"SEMISIM_SERVER_PORT={SERVER_PORT}",
+        "-e", "SEMISIM_SERVER_WORKERS=1",
+        "-e", "SEMISIM_SERVER_RUNS_DIR=/workspaces/SemiSim/runs",        "-e", f"SEMISIM_SERVER_CORS_ORIGINS=http://127.0.0.1:{DASHBOARD_PORT},http://localhost:{DASHBOARD_PORT}",        "-e", "MPLBACKEND=Agg",
+        "semisim:ci",
+        "python", "-m", "uvicorn", "semisim_server.app:build_app",
         "--host", "0.0.0.0", "--port", str(SERVER_PORT),
         "--factory", "--log-level", "warning", "--reload",
     ]

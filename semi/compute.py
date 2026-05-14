@@ -23,7 +23,7 @@ Backend taxonomy (matches schema 1.4.0 from M15 Phase B):
                    the build flag is not detectable.
 
 Environment override:
-    KRONOS_BACKEND - When ``solver.backend == "auto"``, this overrides the
+    SEMISIM_BACKEND - When ``solver.backend == "auto"``, this overrides the
                      auto-resolution preference order. Useful in CI to pin
                      to "cpu-mumps" even on a GPU-capable host.
 """
@@ -193,7 +193,7 @@ def resolve_backend(requested: str, available: list[str] | None = None) -> str:
       - ``"gpu-amgx"``: returns ``"gpu-amgx"`` if available, else raises.
       - ``"gpu-hypre"``: returns ``"gpu-hypre"`` if available, else raises.
       - ``"auto"``: prefers ``gpu-amgx`` > ``gpu-hypre`` > ``cpu-mumps``;
-        ``KRONOS_BACKEND`` env var overrides the preference (must itself
+        ``SEMISIM_BACKEND`` env var overrides the preference (must itself
         resolve to an available backend).
     """
     if available is None:
@@ -211,16 +211,16 @@ def resolve_backend(requested: str, available: list[str] | None = None) -> str:
             )
         return requested
     if requested == "auto":
-        override = os.environ.get("KRONOS_BACKEND")
+        override = os.environ.get("SEMISIM_BACKEND")
         if override:
             if override not in _KNOWN_BACKENDS:
                 raise ConfigError(
-                    f"KRONOS_BACKEND={override!r} is not a recognised "
+                    f"SEMISIM_BACKEND={override!r} is not a recognised "
                     f"backend; expected one of {list(_KNOWN_BACKENDS)}"
                 )
             if override not in available and override != "cpu-mumps":
                 raise ConfigError(
-                    f"KRONOS_BACKEND={override!r} is not available in "
+                    f"SEMISIM_BACKEND={override!r} is not available in "
                     f"this build (available: {available})"
                 )
             return override

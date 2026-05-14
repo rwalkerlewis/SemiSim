@@ -307,7 +307,7 @@ field — a field that points outward from the axis would have a
 discontinuity at the axis itself. So the only physically meaningful
 condition at $r = 0$ is *zero* flux, which is exactly what the
 homogeneous Neumann case gives. The schema doesn't need to forbid
-nonzero Neumann because the kronos-semi schema doesn't expose nonzero
+nonzero Neumann because the SemiSim schema doesn't expose nonzero
 Neumann at all (the only options are Dirichlet via `ohmic`/`gate` or
 homogeneous Neumann via `insulating` / unspecified).
 

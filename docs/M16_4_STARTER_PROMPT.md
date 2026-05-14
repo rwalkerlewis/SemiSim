@@ -1,8 +1,8 @@
 ## Context
 
-You are working in `kronos-semi` at `v0.19.0` (post-M16.3, package
+You are working in `SemiSim` at `v0.19.0` (post-M16.3, package
 version `0.19.0`, schema `2.3.0`). The repo is at
-`https://github.com/rwalkerlewis/kronos-semi`; `main` is at
+`https://github.com/rwalkerlewis/SemiSim`; `main` is at
 `22dc145` (`M16.3: Auger recombination (#79)`).
 
 Your assignment is **M16.4: Fermi-Dirac statistics (gated)**, the
@@ -713,7 +713,7 @@ analytical-match verifier passing.
       preserves ADR 0004; if your derivation breaks the
       cancellation argument, ADR 0015 ships first.
 - [ ] `make_scaling_from_config` still on every solve path.
-- [ ] No PETSc / UFL types leak into `kronos_server` public API.
+- [ ] No PETSc / UFL types leak into `semisim_server` public API.
 - [ ] Schema bumped per minor (2.3.0 to 2.4.0); v2.0.0,
       v2.1.0, v2.2.0, and v2.3.0 inputs still validate.
 - [ ] MMS rate gate L2 >= 1.99 and H1 >= 0.99 active in

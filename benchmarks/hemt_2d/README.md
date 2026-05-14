@@ -75,7 +75,7 @@ V&V scope.
 ## Why 15 %
 
 The 15 % tolerance reflects the gap between the *classical
-electrostatic* solver (which kronos-semi is) and the *fully quantum*
+electrostatic* solver (which SemiSim is) and the *fully quantum*
 Poisson-Schrodinger references usually cited for HEMT 2DEG sheet
 densities (Stern 1972, Stern & Sarma 1984, Pozela & Reklaitis 1980).
 The classical solver matches the classical-electrostatic reference

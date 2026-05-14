@@ -51,7 +51,7 @@ from the valence band, leaving behind a free hole and a B⁻ acceptor
 core. The acceptor binding energy in silicon is about 45 meV; complete
 ionization holds for the same reason.
 
-kronos-semi assumes complete ionization at 300 K throughout. Freeze-out
+SemiSim assumes complete ionization at 300 K throughout. Freeze-out
 effects below ~100 K are out of scope; cryogenic device simulation
 would need to relax this.
 
@@ -209,7 +209,7 @@ This is the assertion at [`tests/check_analytical_math.py:78-80`](../../tests/ch
    accurate; below $\sim 10^{15}$ at room temperature the assumption is
    fine because $kT$ is well above the binding energy. The risky regime
    is heavy doping at low $T$ (cryogenic), where freeze-out reduces the
-   ionized fraction. kronos-semi targets 300 K and does not model this.
+   ionized fraction. SemiSim targets 300 K and does not model this.
 4. **`region` field is informational.** As of the current ingest, the
    doping callable is evaluated at every mesh point regardless of the
    `region` key in the JSON entry; the field is read but does not gate
@@ -247,7 +247,7 @@ for the symmetric junction, $x_p N_A = x_n N_D$ at machine precision.
 **Exercise 4.5.** A p-type body is gradually doped from
 $10^{17}\,\mathrm{cm^{-3}}$ at the surface to $10^{15}$ at 1 µm depth
 (linearly in $\log_{10} N_A$). Sketch $\psi_\mathrm{eq}(z)$ on this
-profile. Why does kronos-semi not yet support arbitrary table-based
+profile. Why does SemiSim not yet support arbitrary table-based
 doping profiles?
 
 ### Solutions
@@ -298,7 +298,7 @@ prioritized; the Gaussian profile covers most realistic implant cases.
   charge neutrality with worked examples.
 - **Selberherr (1984), §1.4** for the device-physics framing of doping
   profiles, including diffusion-driven Gaussian shapes — the same model
-  kronos-semi uses for source/drain implants.
+  SemiSim uses for source/drain implants.
 - **Plummer, Deal, and Griffin, *Silicon VLSI Technology* (2000),
   §7–8** for the fabrication context: how Gaussian (or
   Pearson-shape-corrected Gaussian) profiles arise from real ion

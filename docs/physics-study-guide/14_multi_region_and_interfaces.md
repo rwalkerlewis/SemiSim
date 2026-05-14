@@ -28,7 +28,7 @@ treatment must:
 - enforce the dielectric flux-continuity condition at the interface,
 - not couple oxide DOFs into continuity equations that don't apply there.
 
-kronos-semi achieves all four with a parent mesh + semiconductor
+SemiSim achieves all four with a parent mesh + semiconductor
 submesh + cellwise DG0 $\varepsilon_r$ + entity-mapped UFL forms. This
 chapter explains every one.
 
@@ -111,7 +111,7 @@ discrete solution reproduces the physical interface condition to the
 accuracy of the FE space.
 
 This is the *single best feature* of FEM for multi-region problems and
-the main reason kronos-semi uses it (as opposed to finite-difference
+the main reason SemiSim uses it (as opposed to finite-difference
 or finite-volume schemes that would need explicit interface flux
 balancing).
 
@@ -358,7 +358,7 @@ resistor; M19 plans it for the 3D MOSFET).
 ## Further reading
 
 - **Brezzi and Boffi (2003)** — for the mathematical analysis of mixed
-  and constrained spaces. kronos-semi avoids these by using submesh +
+  and constrained spaces. SemiSim avoids these by using submesh +
   entity maps, but the theory underlies the correctness.
 - **Logg et al. (2012), Chapter 4** — multi-region forms in FEniCS.
 - **dolfinx tutorial** — multi-region examples at https://jsdokken.com/dolfinx-tutorial/.

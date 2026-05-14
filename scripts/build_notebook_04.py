@@ -10,9 +10,9 @@ import nbformat as nbf
 nb = nbf.v4.new_notebook()
 cells = []
 
-cells.append(nbf.v4.new_markdown_cell(r"""# kronos-semi · Notebook 04: 3D Doped Resistor V-I
+cells.append(nbf.v4.new_markdown_cell(r"""# SemiSim · Notebook 04: 3D Doped Resistor V-I
 
-First 3D benchmark in kronos-semi. A 1 µm × 200 nm × 200 nm uniformly n-doped silicon bar ($N_D = 10^{18}$ cm⁻³, $\mu_n = 1400$ cm$^2$/(V·s)) with ohmic contacts on the $x = 0$ and $x = L$ faces, swept over $V \in [-0.01, +0.01]$ V at 0.005 V steps. The notebook:
+First 3D benchmark in SemiSim. A 1 µm × 200 nm × 200 nm uniformly n-doped silicon bar ($N_D = 10^{18}$ cm⁻³, $\mu_n = 1400$ cm$^2$/(V·s)) with ohmic contacts on the $x = 0$ and $x = L$ faces, swept over $V \in [-0.01, +0.01]$ V at 0.005 V steps. The notebook:
 
 1. Runs the bipolar sweep on the **builtin** box mesh (`[64, 16, 16]` hex-as-tet cells) and overlays the simulated $I(V)$ against the ohmic line $I = V / R$ with $R = L / (q\, N_D\, \mu_n\, A)$.
 2. Runs the same sweep on the **gmsh `.msh` fixture** (`fixtures/box.msh`, an unstructured tetrahedral mesh of the same geometry) to confirm the `dolfinx.io.gmsh.read_from_msh` path in `semi/mesh.py` produces the same $R_{sim}$ within 1%.
@@ -21,7 +21,7 @@ The two runs share a JSON schema, a physics stack, and a verifier. What differs 
 
 ## Notebook set
 
-This is the fourth and final Colab walkthrough that exercises the [end-of-M7 capability matrix](https://github.com/rwalkerlewis/kronos-semi#status) from the README:
+This is the fourth and final Colab walkthrough that exercises the [end-of-M7 capability matrix](https://github.com/rwalkerlewis/SemiSim#status) from the README:
 
 | Notebook | Covers |
 |----------|--------|
@@ -32,7 +32,7 @@ This is the fourth and final Colab walkthrough that exercises the [end-of-M7 cap
 
 **What this notebook does:**
 1. Installs `dolfinx` on Colab via [FEM on Colab](https://fem-on-colab.github.io/) and ensures the `gmsh` Python module is present so the `.msh` loader works (see §1 for the Option-A pin).
-2. Clones the [kronos-semi](https://github.com/rwalkerlewis/kronos-semi) repo.
+2. Clones the [SemiSim](https://github.com/rwalkerlewis/SemiSim) repo.
 3. Loads `benchmarks/resistor_3d/resistor.json` (builtin mesh), runs the 5-point bipolar sweep, and plots $I(V)$ vs. $V/R$.
 4. Loads `benchmarks/resistor_3d/resistor_gmsh.json` (gmsh fixture), runs the same sweep, overlays on the same axes.
 5. Compares $R_{sim}$ across the two meshes; confirms both agree with $R_{theory}$ to within 1%.
@@ -73,10 +73,10 @@ cells.append(nbf.v4.new_markdown_cell(r"""## 2. Clone the repo and install the p
 Same pattern as Notebooks 01-03 — `pip install -e` so any source edits you make persist in the Colab session."""))
 
 cells.append(nbf.v4.new_code_cell(r"""import os
-if not os.path.exists('kronos-semi'):
-    !git clone -q https://github.com/rwalkerlewis/kronos-semi.git
+if not os.path.exists('SemiSim'):
+    !git clone -q https://github.com/rwalkerlewis/SemiSim.git
 
-%cd kronos-semi
+%cd SemiSim
 !pip install -q -e .
 print("Package installed.")
 """))
@@ -296,7 +296,7 @@ cells.append(nbf.v4.new_markdown_cell(r"""## Summary
   - V-I linearity verifier specification (5-point sweep, zero-bias floor, sign check, 1% tolerance): `docs/resistor_derivation.md` §3.
   - Verifier implementation: `verify_resistor_3d()` in `scripts/run_benchmark.py`, registered under the key `"resistor_3d"`.
 
-**Notebook set complete.** Notebooks 01-04 together walk a new reviewer through all four device classes in the end-of-M7 capability matrix: 1D equilibrium Poisson, 1D coupled drift-diffusion under bias, 2D multi-region MOS C-V, and 3D ohmic V-I with two mesh sources. The rest of the simulator's capability — MMS-verified convergence rates, charge-neutrality conservation, SRH reverse-bias generation, adaptive continuation diagnostics — is exercised by the test suite (206 tests, 95.58% coverage) and the V&V battery (62/62 PASS). See the [repo](https://github.com/rwalkerlewis/kronos-semi) and its [capability matrix](https://github.com/rwalkerlewis/kronos-semi#status)."""))
+**Notebook set complete.** Notebooks 01-04 together walk a new reviewer through all four device classes in the end-of-M7 capability matrix: 1D equilibrium Poisson, 1D coupled drift-diffusion under bias, 2D multi-region MOS C-V, and 3D ohmic V-I with two mesh sources. The rest of the simulator's capability — MMS-verified convergence rates, charge-neutrality conservation, SRH reverse-bias generation, adaptive continuation diagnostics — is exercised by the test suite (206 tests, 95.58% coverage) and the V&V battery (62/62 PASS). See the [repo](https://github.com/rwalkerlewis/SemiSim) and its [capability matrix](https://github.com/rwalkerlewis/SemiSim#status)."""))
 
 nb.cells = cells
 

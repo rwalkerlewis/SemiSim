@@ -1,8 +1,8 @@
-# PHYSICS_INTRO: A Programmer's Walkthrough of What kronos-semi Actually Computes
+# PHYSICS_INTRO: A Programmer's Walkthrough of What SemiSim Actually Computes
 
 **Audience.** You can program, you know calculus, you have maybe taken one
 undergraduate physics or EE course a long time ago. You have never opened
-a TCAD manual. You want to contribute to kronos-semi or write code that
+a TCAD manual. You want to contribute to SemiSim or write code that
 consumes its output, and you need to understand what the solver is doing
 without taking a graduate semester on semiconductor device physics first.
 
@@ -33,7 +33,7 @@ self-consistent picture: at every point in the device, what is the
 electrostatic potential ψ, what is the electron density n, what is the
 hole density p, and what currents are flowing through the contacts.
 
-kronos-semi is that kind of simulator, built on the FEniCSx finite-element
+SemiSim is that kind of simulator, built on the FEniCSx finite-element
 framework and driven by JSON input files.
 
 ---
@@ -60,7 +60,7 @@ four things:
 
 So the right side becomes q(p − n + N_D⁺ − N_A⁻), where q is the
 elementary charge. In equilibrium, "ionized" just means "all of them,"
-which is what kronos-semi assumes.
+which is what SemiSim assumes.
 
 **Code pointer:** `semi/physics/poisson.py::build_equilibrium_poisson_form`
 for the equilibrium case, and the first term `F_psi` in
@@ -236,7 +236,7 @@ That gives us Dirichlet conditions on ψ, Φ_n, and Φ_p:
 
 A gate is a metal electrode separated from the semiconductor by an
 insulator (for silicon MOS, the insulator is SiO₂). The gate holds its
-own potential but there's no carrier exchange. In kronos-semi:
+own potential but there's no carrier exchange. In SemiSim:
 
 - The oxide is a meshed region with its own permittivity, no doping, no
   mobile carriers.
@@ -294,7 +294,7 @@ textbook formulas, and they fall out of a zero-bias Poisson solve with
 no continuity equations needed (at equilibrium, Φ_n = Φ_p = 0, so the
 continuity equations are trivially satisfied).
 
-**What kronos-semi does.**
+**What SemiSim does.**
 
 1. Parse `benchmarks/pn_1d/pn_junction.json`.
 2. Build a 1D interval mesh with 400 cells between 0 and 2 µm.
@@ -321,7 +321,7 @@ on a laptop.
 
 ## 6. What else can the solver do today
 
-Beyond equilibrium, kronos-semi handles:
+Beyond equilibrium, SemiSim handles:
 
 - **Bias sweeps.** Apply a non-zero voltage, solve the full coupled
   (psi, phi_n, phi_p) system. `benchmarks/pn_1d_bias/` produces a
@@ -446,11 +446,11 @@ Depending on what you want to do:
 ## 9. Recommended external references
 
 If you want to go deeper on the device physics, two books are enough
-to carry you through anything in kronos-semi:
+to carry you through anything in SemiSim:
 
 - **Sze, Ng — Physics of Semiconductor Devices (3rd ed., 2007).** The
   standard reference. Read chapter 2 for carrier statistics and
-  chapter 3 for pn junctions. Material parameters in kronos-semi's
+  chapter 3 for pn junctions. Material parameters in SemiSim's
   `materials.py` cite this book.
 - **Selberherr — Analysis and Simulation of Semiconductor Devices
   (1984).** Old but still the clearest derivation of the

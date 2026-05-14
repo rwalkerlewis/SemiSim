@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "kronos-semi run manifest v1",
-  "description": "Schema-versioned metadata describing a single kronos-semi simulation run artifact.",
+  "title": "SemiSim run manifest v1",
+  "description": "Schema-versioned metadata describing a single SemiSim simulation run artifact.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -28,7 +28,7 @@
       "required": ["name", "version", "commit"],
       "properties": {
         "name": {
-          "description": "Name of the simulation engine (e.g. 'kronos-semi').",
+          "description": "Name of the simulation engine (e.g. 'SemiSim').",
           "type": "string"
         },
         "version": {

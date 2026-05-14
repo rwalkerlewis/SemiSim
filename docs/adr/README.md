@@ -1,7 +1,7 @@
 # Architecture Decision Records
 
 This directory holds the Architecture Decision Records (ADRs) for
-kronos-semi. An ADR captures a single significant decision: its context,
+SemiSim. An ADR captures a single significant decision: its context,
 the decision itself, and its consequences. Once accepted, an ADR is
 immutable. To change an accepted decision, write a new ADR that
 supersedes the old one and mark the old one as Superseded.

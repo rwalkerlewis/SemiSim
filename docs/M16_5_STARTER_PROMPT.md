@@ -1,8 +1,8 @@
 ## Context
 
-You are working in `kronos-semi` at `v0.20.0` (post-M16.4, package
+You are working in `SemiSim` at `v0.20.0` (post-M16.4, package
 version `0.20.0`, schema `2.4.0`). The repo is at
-`https://github.com/rwalkerlewis/kronos-semi`; `main` is at
+`https://github.com/rwalkerlewis/SemiSim`; `main` is at
 `42d1cc8` (`M16.4: Fermi-Dirac statistics (gated) (#81)`).
 
 Your assignment is **M16.5: Schottky contacts**, the fifth physics-
@@ -600,7 +600,7 @@ shipped.
    ```
    ## 6. What else can the solver do today
 
-   Beyond equilibrium, kronos-semi handles:
+   Beyond equilibrium, SemiSim handles:
 
    - **Bias sweeps.** Apply a non-zero voltage, solve the full
      coupled (psi, phi_n, phi_p) system. `benchmarks/pn_1d_bias/`
@@ -742,7 +742,7 @@ shipped.
       diffusion (ADR 0004). The Schottky Robin form is a
       surface integral on the continuity rows in Slotboom form.
 - [ ] `make_scaling_from_config` still on every solve path.
-- [ ] No PETSc / UFL types leak into `kronos_server` public API.
+- [ ] No PETSc / UFL types leak into `semisim_server` public API.
 - [ ] Schema bumped per minor (2.4.0 to 2.5.0); v2.0.0 through
       v2.4.0 inputs still validate.
 - [ ] MMS rate gate L2 >= 1.99 / H1 >= 0.99 active for Variants

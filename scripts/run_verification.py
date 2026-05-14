@@ -410,7 +410,7 @@ def cmd_all(args) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Run a kronos-semi V&V study and write CSV+PNG artifacts."
+        description="Run a SemiSim V&V study and write CSV+PNG artifacts."
     )
     parser.add_argument("--out", help="output root directory (default: results/<study>)")
     sub = parser.add_subparsers(dest="study", required=True)

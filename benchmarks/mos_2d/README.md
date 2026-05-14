@@ -1,6 +1,6 @@
 # 2D MOS capacitor benchmark (M6, M14.1)
 
-First 2D benchmark and first multi-region device in kronos-semi.
+First 2D benchmark and first multi-region device in SemiSim.
 
 As of M14.1 (2026-04-26) the C-V curve is extracted using the
 analytic-AC differential capacitance runner

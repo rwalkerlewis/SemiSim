@@ -11,9 +11,9 @@ other milestone work.
 
 ## Context
 
-You are working in `kronos-semi` at `v0.18.0` (post-M16.2, package
+You are working in `SemiSim` at `v0.18.0` (post-M16.2, package
 version `0.18.0`, schema `2.2.0`). The repo is at
-`https://github.com/rwalkerlewis/kronos-semi`; `main` is at `67194c4`
+`https://github.com/rwalkerlewis/SemiSim`; `main` is at `67194c4`
 (`M16.2: Lombardi surface mobility (#78)`).
 
 Your assignment is **M16.3: Auger recombination**, the third

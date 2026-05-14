@@ -10,9 +10,9 @@ merged. Do not bundle with any other milestone work.
 
 ## Context
 
-You are working in `kronos-semi` at `v0.17.0` (post-M16.1, package
+You are working in `SemiSim` at `v0.17.0` (post-M16.1, package
 version `0.17.0`, schema `2.1.0`). The repo is at
-`https://github.com/rwalkerlewis/kronos-semi`; the only commit on
+`https://github.com/rwalkerlewis/SemiSim`; the only commit on
 `main` since v0.17.0 landed is the doc-only `0f09973`
 (`docs(physics-study-guide): fix equation rendering on GitHub` PR #77),
 which contains no code change.
@@ -617,7 +617,7 @@ with `physics.mobility.model: "lombardi"` exits 0 with the
 - [ ] Slotboom primary unknowns retained; no SUPG / streamline
       diffusion (ADR 0004).
 - [ ] `make_scaling_from_config` still on every solve path.
-- [ ] No PETSc / UFL types leak into `kronos_server` public API.
+- [ ] No PETSc / UFL types leak into `semisim_server` public API.
 - [ ] Schema bumped per minor (2.1.0 to 2.2.0); v2.0.0 and v2.1.0
       inputs still validate.
 - [ ] MMS rate gate L2 >= 1.99 and H1 >= 0.99 active in

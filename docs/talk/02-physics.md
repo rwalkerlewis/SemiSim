@@ -1,4 +1,4 @@
-# §2 — The Physics: What kronos-semi Actually Computes
+# §2 — The Physics: What SemiSim Actually Computes
 
 **Suggested slide title:** "Three Equations That Describe Every Classical Semiconductor Device"
 **Target time:** 5–6 minutes
@@ -53,7 +53,7 @@ at specific faces. Each contact imposes a boundary condition on the PDEs.
 
 **Ohmic contacts** are perfect current sources. The metal holds the
 semiconductor at a fixed potential and maintains charge neutrality right
-at the contact surface. In kronos-semi, this means Dirichlet conditions on
+at the contact surface. In SemiSim, this means Dirichlet conditions on
 all three fields: ψ = V_applied + ψ_builtin, and both quasi-Fermi
 potentials equal V_applied.
 

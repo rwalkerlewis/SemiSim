@@ -9,7 +9,7 @@
 - Map the JSON schema's `mesh.regions_by_box` and `mesh.facets_by_plane`
   to UFL `dx(tag)` and `ds(tag)` integration measures.
 - Identify the natural-vs-essential boundary conditions in a UFL form.
-- Read the kronos-semi residual builders and explain every term.
+- Read the SemiSim residual builders and explain every term.
 
 ## Physical motivation
 
@@ -82,7 +82,7 @@ subspace, the **conforming Lagrange space $V_h \subset H^1$**:
 
 For $k = 1$ (P1 Lagrange), each element has one DOF per vertex and the
 basis functions are the "tent functions" that equal 1 at one vertex
-and 0 at all other vertices. kronos-semi uses P1 throughout
+and 0 at all other vertices. SemiSim uses P1 throughout
 ([`semi/physics/drift_diffusion.py:55-63`](../../semi/physics/drift_diffusion.py)
 sets `("Lagrange", 1)`).
 
@@ -312,7 +312,7 @@ to be added to the form.
 Why does the stiffness term integrate over `dx_full` while the source
 term integrates over `dx_semi`? What does this enforce physically?
 
-**Exercise 13.5.** Why does kronos-semi use *three separate* P1 scalar
+**Exercise 13.5.** Why does SemiSim use *three separate* P1 scalar
 spaces for $(\psi, \Phi_n, \Phi_p)$ rather than a single
 `MixedElement`? See [`semi/physics/drift_diffusion.py:50-63`](../../semi/physics/drift_diffusion.py)
 for the answer.
@@ -370,7 +370,7 @@ to express as a MixedElement on a single mesh.
   expressions, forms, and the `MeshTags`/`Measure` API.
 - **Brezzi and Boffi, *Mixed and Hybrid Finite Element Methods*
   (1991/2003).** For when MixedElement and the inf-sup condition
-  matter. kronos-semi avoids these constructs by using $H^1$-conforming
+  matter. SemiSim avoids these constructs by using $H^1$-conforming
   Lagrange on each scalar; this reference is for further study.
 - **Brenner and Scott, *The Mathematical Theory of Finite Element
   Methods* (3rd ed., 2008).** Rigorous functional analysis of FEM.

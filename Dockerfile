@@ -1,10 +1,10 @@
-# Development image for kronos-semi.
+# Development image for SemiSim.
 #
 # Based on the official dolfinx image, which provides FEniCSx (dolfinx, ufl,
 # basix, ffcx), PETSc, MPI, and a compatible Python. We layer the project's
 # Python dev dependencies and install the package in editable mode on top.
 #
-# Build:   docker build -t kronos-semi:dev .
+# Build:   docker build -t semisim:dev .
 # Run:     docker compose up -d dev   (preferred, see docker-compose.yml)
 
 FROM ghcr.io/fenics/dolfinx/dolfinx:stable
@@ -55,7 +55,7 @@ RUN set -eux; \
     echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME}; \
     chmod 0440 /etc/sudoers.d/${USERNAME}
 
-WORKDIR /workspaces/kronos-semi
+WORKDIR /workspaces/SemiSim
 
 # Two-stage install so the heavy dependency layer caches across source-only
 # edits (Dockerfile change #1 in CI-speedup pass):
@@ -65,7 +65,7 @@ WORKDIR /workspaces/kronos-semi
 #      depends only on pyproject.toml, so a typical PR (which only edits
 #      semi/ or tests/) hits the cache and skips re-resolving wheels.
 #   2. `COPY . .` overlays the real source. The hatchling editable install
-#      from step 1 emits a redirector for packages=["semi", "kronos_server"]
+#      from step 1 emits a redirector for packages=["semi", "semisim_server"]
 #      that resolves through PYTHONPATH/finders to whatever lives at those
 #      paths at runtime, so we do *not* need a second `pip install -e`.
 #
@@ -75,8 +75,8 @@ WORKDIR /workspaces/kronos-semi
 # unchanged for runtime; the mount supplies its own cache directory).
 COPY pyproject.toml README.md ./
 COPY schemas ./schemas
-RUN mkdir -p semi kronos_server \
- && touch semi/__init__.py kronos_server/__init__.py
+RUN mkdir -p semi semisim_server \
+ && touch semi/__init__.py semisim_server/__init__.py
 RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
     PIP_NO_CACHE_DIR=0 pip install --break-system-packages \
         -e ".[dev,server,test]" \
@@ -84,7 +84,7 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
         "ipykernel>=6.0"
 
 # Overlay the real source. The bind mount in docker-compose / CI will
-# overlay /workspaces/kronos-semi again at runtime; this COPY guarantees
+# overlay /workspaces/SemiSim again at runtime; this COPY guarantees
 # `import semi` works when the image is run without a bind mount.
 COPY . .
 

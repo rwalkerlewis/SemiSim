@@ -547,7 +547,7 @@ psi_s, so one-dimensional root-finding converges quickly).
 ### 6.7 Convention map for textbook readers
 
 Sze and Pierret reference psi to the bulk Fermi level rather than the
-bulk intrinsic level: their psi_bulk_ref differs from the kronos-semi
+bulk intrinsic level: their psi_bulk_ref differs from the SemiSim
 psi by the bulk-Fermi shift,
 
 ```

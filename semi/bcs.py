@@ -1,5 +1,5 @@
 """
-Boundary-condition construction for kronos-semi.
+Boundary-condition construction for SemiSim.
 
 This module is the single place that turns a validated JSON config plus a
 mesh into the dolfinx `dirichletbc` objects consumed by the equilibrium
@@ -248,7 +248,7 @@ def _schottky_psi_eq(contact: ContactBC, ref_mat, sc) -> float:
     Equilibrium psi at a Schottky facet in scaled units (psi / V_t).
 
     The metal Fermi level sits ``barrier_height_eV`` below the
-    semiconductor conduction band on the metal side. In the kronos-semi
+    semiconductor conduction band on the metal side. In the SemiSim
     Slotboom convention psi is measured from the intrinsic Fermi level
     (so n = n_i exp(psi/V_t) under Boltzmann), which gives
     ``q psi = E_F - E_i``. At the Schottky interface E_F = E_F_metal and

@@ -1,7 +1,7 @@
-# kronos-semi: Improvement Guide
+# SemiSim: Improvement Guide
 
-**Purpose.** This document is the ground-truth roadmap for transforming kronos-semi
-from a KronosAI submission artifact into a production engine that sits behind a
+**Purpose.** This document is the ground-truth roadmap for transforming SemiSim
+from a SemiSim submission artifact into a production engine that sits behind a
 COMSOL-Semiconductor-style web GUI. It is written to be consumed by both human
 contributors and coding agents (Claude, Codex, Cursor, etc.); read it alongside
 `PLAN.md` and `docs/ROADMAP.md`.
@@ -66,7 +66,7 @@ What exists and works:
 - On-disk result artifact contract: `manifest.json`, fields, IV CSVs,
   and convergence logs under `runs/<run_id>/`, schema-validated; a
   pure-Python reader round-trips without dolfinx (M9).
-- HTTP server surface: `kronos_server/` with `POST /solve`,
+- HTTP server surface: `semisim_server/` with `POST /solve`,
   `GET /runs/{id}`, WebSocket `/runs/{id}/stream`, `GET /materials`,
   `GET /schema`; the server process imports no dolfinx at module
   scope (M10).
@@ -109,7 +109,7 @@ What does *not* exist:
   `semi/runners/` and `semi/postprocess.py` need a collective-
   communication audit before mosfet_3d at ~1M DOFs is practical.
   M19.1.
-- **No HTTP server hardening.** `kronos_server/app.py` carries a
+- **No HTTP server hardening.** `semisim_server/app.py` carries a
   `# TODO(M10+): add auth, rate limiting, API keys before any public
   deployment`. M20.
 - **The four gaps closed in M14.3** (strict schema, XDMF mesh ingest,
@@ -194,7 +194,7 @@ Every successful solve writes a directory with this layout:
 ```json
 {
   "schema_version": "1.0.0",
-  "engine": {"name": "kronos-semi", "version": "0.9.0", "commit": "..."},
+  "engine": {"name": "SemiSim", "version": "0.9.0", "commit": "..."},
   "run_id": "2026-04-23T16-32-11Z_pn_bias_a1b2c3",
   "status": "completed",
   "wall_time_s": 12.4,
@@ -246,7 +246,7 @@ acceptance tests, and scope preserved in §10.
 
 ### M10 — HTTP server: `POST /solve`, `GET /runs/{id}`
 
-**Status: Done (M10).** `kronos_server/` package, FastAPI surface,
+**Status: Done (M10).** `semisim_server/` package, FastAPI surface,
 WebSocket progress channel, `ProcessPoolExecutor`-backed workers.
 Full deliverable, acceptance tests, and scope preserved in §10.
 
@@ -997,7 +997,7 @@ this engine's JSON schema and HTTP API.
 
 ### M20: HTTP server hardening
 
-**Why.** [`kronos_server/app.py`](../kronos_server/app.py) carries a
+**Why.** [`semisim_server/app.py`](../semisim_server/app.py) carries a
 `# TODO(M10+): add auth, rate limiting, API keys before any public
 deployment`. Required before this can be hosted multi-tenant.
 
@@ -1100,7 +1100,7 @@ The engine is ready for a UI when all of these are green:
 3. **Write the acceptance test first.** Every milestone above states its
    acceptance test explicitly. Make it fail, then make it pass.
 4. **Respect the layer boundaries.** Layer 3 (pure-Python core) never imports
-   dolfinx. The new `kronos_server/` package is Layer 6 and never imports
+   dolfinx. The new `semisim_server/` package is Layer 6 and never imports
    PETSc or UFL types into its public API.
 5. **Do not rewrite the physics kernels.** The UFL forms are correct and
    MMS-verified. If you think you see a bug, write a failing MMS test first;
@@ -1129,7 +1129,7 @@ The engine is ready for a UI when all of these are green:
   bottleneck is the linear solve, not Python. M15 addresses it in the right
   place.
 - **Do not claim COMSOL parity.** COMSOL has 30 years of model variations,
-  convergence hacks, and user-reported-edge-cases. kronos-semi will have a
+  convergence hacks, and user-reported-edge-cases. SemiSim will have a
   useful, correct subset. Be honest about that in marketing.
 
 ---
@@ -1466,11 +1466,11 @@ Plus a new CLI entry point `semi-run <input.json> [--out runs/]` that wraps
 
 **Why:** This is what lets a browser UI talk to the engine.
 
-**Deliverable:** New top-level package `kronos_server/` (kept out of `semi/` to
+**Deliverable:** New top-level package `semisim_server/` (kept out of `semi/` to
 preserve the pure-engine boundary):
 
 ```
-kronos_server/
+semisim_server/
 ├── __init__.py
 ├── app.py              # FastAPI app
 ├── jobs.py             # job queue + worker spawning

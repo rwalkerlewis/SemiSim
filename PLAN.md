@@ -1,6 +1,6 @@
 # PLAN
 
-Authoritative planning document for kronos-semi. Human and AI contributors
+Authoritative planning document for SemiSim. Human and AI contributors
 should read this file before writing any code.
 
 ## How to use this document
@@ -27,7 +27,7 @@ recombination for 1D/2D/3D devices.
 
 ## Repository
 
-- URL: https://github.com/rwalkerlewis/kronos-semi
+- URL: https://github.com/rwalkerlewis/SemiSim
 - License: MIT
 - Primary branch: `main`
 - Active branch: `main` (PR #65 merged via `799934d` on 2026-04-30;
@@ -1366,7 +1366,7 @@ Append-only. Newest entries on top.
     C_ox * (V_GS - V_T) * V_DS` in the window `V_GS in [V_T + 0.2,
     V_T + 0.6] V` at `V_DS = 0.05 V` with a 20 % tolerance. V_T
     comes from `semi.cv.analytical_moscap_params`, shifted into the
-    kronos-semi BC convention. The bias_sweep runner picked up
+    SemiSim BC convention. The bias_sweep runner picked up
     gate-sweep support (`_resolve_sweep` accepts gate contacts; the
     static_voltages loop includes them; per-step iv_rows now carry
     `J_<contact>` for every ohmic contact so the verifier reads
@@ -1445,7 +1445,7 @@ Append-only. Newest entries on top.
   the runner injects no PETSc overrides, so legacy benchmarks bit-
   match. New `semi/compute.py` runtime probe (`available_backends`,
   `device_info`, `resolve_backend`, `petsc_options_for_backend`,
-  `backend_settings_from_cfg`, env override `KRONOS_BACKEND`) drives
+  `backend_settings_from_cfg`, env override `SEMISIM_BACKEND`) drives
   the dynamic `/capabilities` endpoint and the runner-side options
   translation. `semi/solver.py` accepts `cfg=cfg` on
   `solve_nonlinear[_block]`, instruments KSP iters and linear-solve
@@ -1467,7 +1467,7 @@ Append-only. Newest entries on top.
     `backend = "auto"` is allowed to degrade to cpu-mumps. Covered
     by `tests/test_solver_backend_options.py::test_backend_settings_explicit_gpu_amgx_unavailable_raises`.
   Five-layer architecture invariants preserved: no PETSc types leak
-  through the kronos_server public API; physics / bcs / scaling
+  through the semisim_server public API; physics / bcs / scaling
   remain device-agnostic; `semi/compute.py` only imports
   `os`, `typing`, `petsc4py`, `__version__`. Test totals 295 passed,
   26 skipped (was 238 pre-M15). Version bumped 0.14.1 -> 0.15.0.
@@ -1584,14 +1584,14 @@ Append-only. Newest entries on top.
   (`ENGINE_SUPPORTED_MANIFEST_MAJOR = 1`). Added
   `tests/test_schema_versioning.py` (8 pure-Python tests).
   `pyproject.toml` version bumped to `0.11.0`; the wheel now
-  `force-include`s `schemas/` so pip-installed kronos-semi ships the
+  `force-include`s `schemas/` so pip-installed SemiSim ships the
   schema files. 238 tests pass, coverage 95.5%, ruff clean.
 
-- **M10 (2026-04-23):** HTTP server; new `kronos_server/` top-level package
+- **M10 (2026-04-23):** HTTP server; new `semisim_server/` top-level package
   (FastAPI app, `ProcessPoolExecutor` worker pool, file-backed progress
-  stream), `kronos-server` console entry, `server` docker-compose
+  stream), `semisim-server` console entry, `server` docker-compose
   service, `[server]` optional extra in `pyproject.toml`, 15 new server
-  tests (`tests/test_kronos_server.py`). Added optional
+  tests (`tests/test_semisim_server.py`). Added optional
   `progress_callback=None` to `semi/runners/{equilibrium,bias_sweep,mos_cv}.py`
   (only permitted `semi/` change).
 

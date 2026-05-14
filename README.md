@@ -1,10 +1,10 @@
-# kronos-semi
+# SemiSim
 
-[![CI](https://github.com/rwalkerlewis/kronos-semi/actions/workflows/ci.yml/badge.svg)](https://github.com/rwalkerlewis/kronos-semi/actions/workflows/ci.yml)
+[![CI](https://github.com/rwalkerlewis/SemiSim/actions/workflows/ci.yml/badge.svg)](https://github.com/rwalkerlewis/SemiSim/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10–3.12](https://img.shields.io/badge/python-3.10%E2%80%933.12-blue.svg)](https://www.python.org/)
-[![Open notebook 01 in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rwalkerlewis/kronos-semi/blob/main/notebooks/01_pn_junction_1d.ipynb)
-[![Open notebook 05 in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rwalkerlewis/kronos-semi/blob/main/notebooks/05_moscap_axisym_cv.ipynb)
+[![Open notebook 01 in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rwalkerlewis/SemiSim/blob/main/notebooks/01_pn_junction_1d.ipynb)
+[![Open notebook 05 in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rwalkerlewis/SemiSim/blob/main/notebooks/05_moscap_axisym_cv.ipynb)
 
 A JSON-driven finite-element semiconductor device simulator built on FEniCSx
 (dolfinx 0.10). Solves Poisson-coupled drift-diffusion with SRH recombination
@@ -153,7 +153,7 @@ around it.
 Click the badge above, or use the direct link:
 
 ```
-https://colab.research.google.com/github/rwalkerlewis/kronos-semi/blob/main/notebooks/01_pn_junction_1d.ipynb
+https://colab.research.google.com/github/rwalkerlewis/SemiSim/blob/main/notebooks/01_pn_junction_1d.ipynb
 ```
 
 The first cell installs FEniCSx on Colab via [FEM on Colab](https://fem-on-colab.github.io/)
@@ -164,21 +164,21 @@ solve, and plot against analytical curves.
 
 | Notebook | Benchmark | Colab |
 |---|---|---|
-| 01 pn junction 1D | Equilibrium Poisson, depletion approximation | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rwalkerlewis/kronos-semi/blob/main/notebooks/01_pn_junction_1d.ipynb) |
-| 02 pn junction bias | Forward Shockley + reverse SNS sweep | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rwalkerlewis/kronos-semi/blob/main/notebooks/02_pn_junction_bias.ipynb) |
-| 03 MOS C-V | 2D MOS capacitor C-V sweep | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rwalkerlewis/kronos-semi/blob/main/notebooks/03_mos_cv.ipynb) |
-| 04 resistor 3D | 3D doped bar, builtin and gmsh meshes | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rwalkerlewis/kronos-semi/blob/main/notebooks/04_resistor_3d.ipynb) |
-| 05 axisymmetric MOSCAP | LF/HF C-V split (Hu Fig. 5-18), cylindrical 2D, reproduces Hu Fig. 5-18 | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rwalkerlewis/kronos-semi/blob/main/notebooks/05_moscap_axisym_cv.ipynb) |
+| 01 pn junction 1D | Equilibrium Poisson, depletion approximation | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rwalkerlewis/SemiSim/blob/main/notebooks/01_pn_junction_1d.ipynb) |
+| 02 pn junction bias | Forward Shockley + reverse SNS sweep | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rwalkerlewis/SemiSim/blob/main/notebooks/02_pn_junction_bias.ipynb) |
+| 03 MOS C-V | 2D MOS capacitor C-V sweep | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rwalkerlewis/SemiSim/blob/main/notebooks/03_mos_cv.ipynb) |
+| 04 resistor 3D | 3D doped bar, builtin and gmsh meshes | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rwalkerlewis/SemiSim/blob/main/notebooks/04_resistor_3d.ipynb) |
+| 05 axisymmetric MOSCAP | LF/HF C-V split (Hu Fig. 5-18), cylindrical 2D, reproduces Hu Fig. 5-18 | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rwalkerlewis/SemiSim/blob/main/notebooks/05_moscap_axisym_cv.ipynb) |
 
 ## Local install
 
 dolfinx installs most reliably via conda:
 
 ```bash
-conda create -n kronos-semi -c conda-forge python=3.12 fenics-dolfinx mpich pyvista
-conda activate kronos-semi
-git clone https://github.com/rwalkerlewis/kronos-semi.git
-cd kronos-semi
+conda create -n SemiSim -c conda-forge python=3.12 fenics-dolfinx mpich pyvista
+conda activate SemiSim
+git clone https://github.com/rwalkerlewis/SemiSim.git
+cd SemiSim
 pip install -e ".[dev]"
 ```
 
@@ -197,12 +197,12 @@ subprocesses.
 
 ## Running the HTTP server (M10)
 
-The `kronos-server` console entry point starts a FastAPI server that
+The `semisim-server` console entry point starts a FastAPI server that
 exposes the engine over HTTP:
 
 ```bash
-kronos-server                           # 127.0.0.1:8000 by default
-KRONOS_SERVER_PORT=8080 kronos-server   # or via env vars
+semisim-server                           # 127.0.0.1:8000 by default
+SEMISIM_SERVER_PORT=8080 semisim-server   # or via env vars
 ```
 
 Under Docker Compose, the `server` service runs the same entry point:
@@ -346,7 +346,7 @@ majors listed in `ENGINE_SUPPORTED_SCHEMA_MAJORS` in `semi/schema.py`
 
 ## Scope vs COMSOL Semiconductor Module
 
-kronos-semi covers the **quasi-static, steady-state** subset.
+SemiSim covers the **quasi-static, steady-state** subset.
 
 **In scope (shipped):**
 
@@ -407,7 +407,7 @@ ADR cross-references, lives under [docs/theory/](docs/theory/):
 
 ### Why no dolfinx in the server process
 
-`kronos_server/` never imports dolfinx, UFL, or PETSc at module scope.
+`semisim_server/` never imports dolfinx, UFL, or PETSc at module scope.
 FEM work happens only in worker subprocesses spawned via
 `ProcessPoolExecutor(mp_context="spawn")`. A server process can start
 and serve `/health`, `/ready`, `/capabilities`, and `/schema` in a

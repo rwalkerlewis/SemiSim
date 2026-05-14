@@ -10,7 +10,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(
         prog="semi-run",
-        description="Run a kronos-semi simulation and write a result artifact.",
+        description="Run a SemiSim simulation and write a result artifact.",
     )
     parser.add_argument("input_json", type=Path, help="Path to input JSON file.")
     parser.add_argument(

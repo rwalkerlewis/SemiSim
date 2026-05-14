@@ -7,7 +7,7 @@ other milestone work.
 
 ---
 
-You are working in `kronos-semi` at v0.15.0. Your assignment is
+You are working in `SemiSim` at v0.15.0. Your assignment is
 **M14.3: Housekeeping (cheap closes)**, the bridge PR between M15
 (GPU linear-solver path) and M16.1 (Caughey-Thomas mobility, the
 first physics-completeness slice).
@@ -262,7 +262,7 @@ is 95, and CI is green.
       benchmark; new schema dispatch in v2.0.0 does not change the
       assembled forms.
 - [ ] `make_scaling_from_config` still on every solve path.
-- [ ] No PETSc / UFL types leak into `kronos_server` public API.
+- [ ] No PETSc / UFL types leak into `semisim_server` public API.
 - [ ] Schema major bumped (v1 to v2) per the schema-versioning
       invariant; both schemas coexist for one minor cycle; v1 inputs
       log a `DeprecationWarning` and still solve.

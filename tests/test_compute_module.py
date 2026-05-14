@@ -99,7 +99,7 @@ def test_resolve_auto_prefers_amgx_over_hypre_over_cpu():
 
 
 def test_resolve_auto_with_env_override_cpu():
-    with mock.patch.dict(os.environ, {"KRONOS_BACKEND": "cpu-mumps"}):
+    with mock.patch.dict(os.environ, {"SEMISIM_BACKEND": "cpu-mumps"}):
         assert (
             compute.resolve_backend(
                 "auto", available=["cpu-mumps", "gpu-amgx"]
@@ -109,14 +109,14 @@ def test_resolve_auto_with_env_override_cpu():
 
 
 def test_resolve_auto_with_env_override_unavailable_raises():
-    with mock.patch.dict(os.environ, {"KRONOS_BACKEND": "gpu-amgx"}):
-        with pytest.raises(compute.ConfigError, match=r"KRONOS_BACKEND"):
+    with mock.patch.dict(os.environ, {"SEMISIM_BACKEND": "gpu-amgx"}):
+        with pytest.raises(compute.ConfigError, match=r"SEMISIM_BACKEND"):
             compute.resolve_backend("auto", available=["cpu-mumps"])
 
 
 def test_resolve_auto_with_env_override_unknown_backend():
-    with mock.patch.dict(os.environ, {"KRONOS_BACKEND": "tpu-special"}):
-        with pytest.raises(compute.ConfigError, match=r"KRONOS_BACKEND"):
+    with mock.patch.dict(os.environ, {"SEMISIM_BACKEND": "tpu-special"}):
+        with pytest.raises(compute.ConfigError, match=r"SEMISIM_BACKEND"):
             compute.resolve_backend("auto", available=["cpu-mumps"])
 
 

@@ -1,8 +1,8 @@
 ## Context
 
-You are working in `kronos-semi` at `v0.21.0` (post-M16.5, package
+You are working in `SemiSim` at `v0.21.0` (post-M16.5, package
 version `0.21.0`, schema `2.5.0`). The repo is at
-`https://github.com/rwalkerlewis/kronos-semi`; `main` is at
+`https://github.com/rwalkerlewis/SemiSim`; `main` is at
 `12e2110` (`M16.5: Schottky contacts (#82)`).
 
 Your assignment is **M16.6: BBT and TAT tunneling**, the sixth and
@@ -645,7 +645,7 @@ V_R in [-8, -4] V.
 - [ ] Slotboom primary unknowns retained; no SUPG / streamline
       diffusion (ADR 0004).
 - [ ] `make_scaling_from_config` still on every solve path.
-- [ ] No PETSc / UFL types leak into `kronos_server` public API.
+- [ ] No PETSc / UFL types leak into `semisim_server` public API.
 - [ ] Schema bumped per minor (2.5.0 to 2.6.0); v2.0.0 through
       v2.5.0 inputs still validate.
 - [ ] MMS rate gate L2 >= 1.99 / H1 >= 0.99 active for Variants

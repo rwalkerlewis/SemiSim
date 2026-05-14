@@ -53,10 +53,10 @@ _SCHEMA_PATH = _SCHEMA_PATHS[1]
 # v1 inputs log a `DeprecationWarning` and continue to validate against
 # input.v1.json (the loose schema); v2 inputs validate against input.v2.json
 # (strict, additionalProperties: false on every object node). Schemas are
-# published to https://rwalkerlewis.github.io/kronos-semi/schemas/ on every
+# published to https://rwalkerlewis.github.io/SemiSim/schemas/ on every
 # release tag; see .github/workflows/publish-schemas.yml.
 ENGINE_SUPPORTED_SCHEMA_MAJORS = (1, 2)
-# Backwards-compatibility re-export: external callers (kronos_server, the
+# Backwards-compatibility re-export: external callers (semisim_server, the
 # M11 schema-versioning tests) read `ENGINE_SUPPORTED_SCHEMA_MAJOR` and
 # expect a single int. Keep it at the highest supported major so server
 # `/schema` and `/capabilities` endpoints advertise the strict schema.

@@ -1,7 +1,7 @@
 # Physics reference
 
 Stable reference for the governing equations, nondimensionalization, and
-boundary conditions used throughout kronos-semi. This document changes
+boundary conditions used throughout SemiSim. This document changes
 only when the physics content of the code changes. When adding a new
 physics module, verify it uses the conventions here.
 
@@ -942,7 +942,7 @@ effective channel length), residual ohmic series resistance at
 V_DS = 0.05 V on a 5 um body, and 50 x 21 mesh discretisation error.
 
 V_T is computed via `semi.cv.analytical_moscap_params` and shifted into
-the kronos-semi BC convention (V_FB = phi_ms - phi_F) as documented in
+the SemiSim BC convention (V_FB = phi_ms - phi_F) as documented in
 section 6.3. The bias_sweep runner records `J_<contact_name>` at every
 ohmic contact at every step (added in M14.3 alongside gate-sweep
 support); the verifier reads `iv_row["J_drain"]` directly. See

@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "kronos-semi input v2",
-  "description": "Top-level input configuration for a kronos-semi simulation run. Strict v2 (additionalProperties: false) supersedes v1 from M14.3 onward; v1 inputs continue to load with a deprecation warning. See docs/IMPROVEMENT_GUIDE.md M14.3.",
+  "title": "SemiSim input v2",
+  "description": "Top-level input configuration for a SemiSim simulation run. Strict v2 (additionalProperties: false) supersedes v1 from M14.3 onward; v1 inputs continue to load with a deprecation warning. See docs/IMPROVEMENT_GUIDE.md M14.3.",
   "type": "object",
   "required": [
     "schema_version",

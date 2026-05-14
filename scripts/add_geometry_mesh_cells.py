@@ -16,7 +16,7 @@ from pathlib import Path
 
 import nbformat as nbf
 
-MARKER = "# kronos-semi: geometry+mesh visualization"
+MARKER = "# SemiSim: geometry+mesh visualization"
 
 
 # ----------------------------------------------------------------------

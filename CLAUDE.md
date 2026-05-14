@@ -1,4 +1,4 @@
-# Claude Code workflow for kronos-semi
+# Claude Code workflow for SemiSim
 
 This repo uses a **two-agent pattern** for AI-assisted development:
 
@@ -19,16 +19,16 @@ git worktrees of this repo so state stays in sync via git:
 
 ```bash
 # From repo root, one-time setup
-git worktree add ../kronos-semi-review main
+git worktree add ../SemiSim-review main
 
 # Terminal 1 — reviewer (on main or PR branch under review)
-cd ../kronos-semi-review
+cd ../SemiSim-review
 claude
 /agent reviewer
 /model opus
 
 # Terminal 2 — worker (on feature branch being built)
-cd ../kronos-semi
+cd ../SemiSim
 claude
 /agent worker
 /model sonnet

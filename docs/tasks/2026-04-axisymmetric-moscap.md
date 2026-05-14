@@ -8,7 +8,7 @@ Source: user-provided GitHub Copilot task, 2026-04-30. Authoritative.
 - A prior agent attempt exists on `origin/copilot/extend-2d-moscap-axisymmetric-again`. Treat that as discardable history; start a fresh branch `feature/axisymmetric-moscap-cv` from `main`.
 - A planar 2D MOSCAP already exists at `benchmarks/mos_2d/mos_cap.json`. Extend it; do not duplicate.
 - Drift-diffusion + Slotboom modules already exist under `semi/physics/` (`drift_diffusion.py`, `slotboom.py`). Reuse them; the user prompt's note about DD being unmerged is stale.
-- Repo conventions in `/memories/repo/kronos-semi.md` (no em dashes, mesh in physical meters, scaled Poisson coefficient `lambda2 * L0^2 * eps_r`, etc.) apply.
+- Repo conventions in `/memories/repo/SemiSim.md` (no em dashes, mesh in physical meters, scaled Poisson coefficient `lambda2 * L0^2 * eps_r`, etc.) apply.
 
 ## Goal
 
@@ -16,7 +16,7 @@ Reproduce Hu Fig. 5-18 (LF vs. HF C-V split for an MOS capacitor) using a cylind
 
 ## Task (verbatim user spec)
 
-> Extend the existing 2D MOSCAP example in `rwalkerlewis/kronos-semi` to an
+> Extend the existing 2D MOSCAP example in `rwalkerlewis/SemiSim` to an
 > axisymmetric (cylindrical) 2D model, and reproduce the low-frequency
 > (quasi-static) vs. high-frequency C-V curve split shown in Fig. 5-18 of
 > Chenming Hu, Modern Semiconductor Devices for Integrated Circuits,

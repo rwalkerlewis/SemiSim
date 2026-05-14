@@ -16,7 +16,7 @@
 
 ## Physical motivation
 
-Devices need contacts. Two distinct kinds matter for kronos-semi:
+Devices need contacts. Two distinct kinds matter for SemiSim:
 
 - **Ohmic contacts** pass current both ways linearly, behaving like a
   Thevenin-equivalent voltage source on the semiconductor's terminals.

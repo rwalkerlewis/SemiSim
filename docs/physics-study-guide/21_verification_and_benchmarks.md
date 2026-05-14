@@ -19,7 +19,7 @@
 ## Physical motivation
 
 A device simulator that converges to a wrong answer is worse than no
-simulator at all. The kronos-semi V&V suite was the M4 deliverable
+simulator at all. The SemiSim V&V suite was the M4 deliverable
 (ADR 0006); it is the project's load-bearing answer to "how do you know
 the engine is right?"
 

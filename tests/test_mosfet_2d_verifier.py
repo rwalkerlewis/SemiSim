@@ -82,10 +82,10 @@ def test_mosfet_device_params_extracts_V_T(benchmark_cfg):
     dp = rb._mosfet_device_params(benchmark_cfg, mat)
 
     # Long-channel V_T for N_A = 1e16 cm^-3, t_ox = 5 nm, ideal gate
-    # (phi_ms = 0) in the kronos-semi BC convention (psi_intrinsic = 0
+    # (phi_ms = 0) in the SemiSim BC convention (psi_intrinsic = 0
     # at the ohmic body in equilibrium, V_FB = phi_ms - phi_F). For
     # N_A = 1e16, phi_F ~ 0.358 V at 300 K and the textbook V_T ~ 0.787
-    # V drops to V_T_kronos ~ 0.429 V after the convention shift.
+    # V drops to V_T_semisim ~ 0.429 V after the convention shift.
     assert 0.35 <= dp["V_T"] <= 0.50, f"V_T = {dp['V_T']:.3f} V outside expected band"
     assert dp["V_DS"] == pytest.approx(0.05, abs=1e-9)
     assert dp["L_ch"] == pytest.approx(3.0e-6, abs=1e-9)

@@ -44,7 +44,7 @@ covers:
 1. **Notebook 05 has not been executed end-to-end.** This branch was assembled in an environment without dolfinx and without Colab automation. The seven required figures (geometry sketch, mesh plot with corner inset, equilibrium $\psi$, carrier-density panels, band diagram, C-V plot vs Hu Fig. 5-18, convergence study) need a working FEM-on-Colab session. The branch-specific Colab URL for executing it is:
 
    ```
-   https://colab.research.google.com/github/rwalkerlewis/kronos-semi/blob/docs/post-merge-cleanup/notebooks/05_moscap_axisym_cv.ipynb
+   https://colab.research.google.com/github/rwalkerlewis/SemiSim/blob/docs/post-merge-cleanup/notebooks/05_moscap_axisym_cv.ipynb
    ```
 
    Once the figures land they should be saved to

@@ -5,7 +5,7 @@ self-contained; the agent should not need to ask clarifying questions.
 
 ---
 
-You are working on `kronos-semi` (https://github.com/rwalkerlewis/kronos-semi), a
+You are working on `SemiSim` (https://github.com/rwalkerlewis/SemiSim), a
 FEniCSx-based JSON-driven finite-element semiconductor device simulator.
 
 Before writing any code, read the following repository files in this order:
@@ -105,7 +105,7 @@ Implement M9 as specified in `docs/IMPROVEMENT_GUIDE.md` section 4:
 - The manifest JSON must be deterministic given identical input — sort keys,
   fix float precision at 10 significant figures, use ISO-8601 UTC for the
   `run_id` timestamp.
-- The `kronos_server/` package from M10 will consume this artifact. Design
+- The `semisim_server/` package from M10 will consume this artifact. Design
   `read_manifest` so it can be called from a subprocess that has no dolfinx
   or numpy installed (pure-stdlib JSON only). If you need to, split the
   reader out into `semi/io/reader.py` that has only stdlib dependencies.

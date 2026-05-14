@@ -1,6 +1,6 @@
-# §8 — kronos-semi vs. COMSOL Semiconductor Module
+# §8 — SemiSim vs. COMSOL Semiconductor Module
 
-**Suggested slide title:** "How Does kronos-semi Compare to COMSOL's Semiconductor Module?"
+**Suggested slide title:** "How Does SemiSim Compare to COMSOL's Semiconductor Module?"
 **Target time:** 8–12 minutes (stand-alone section; trim to 4–5 min if inserting into a shorter talk)
 
 ---
@@ -11,7 +11,7 @@
 
 COMSOL Multiphysics with the Semiconductor Module is the most widely
 cited GUI-driven device simulator in academic and industrial settings. It
-is expensive, mature, and feature-rich. Understanding where kronos-semi
+is expensive, mature, and feature-rich. Understanding where SemiSim
 agrees with it, where it intentionally differs, and where it still falls
 short is the most honest framing you can give an audience that has used
 COMSOL.
@@ -27,7 +27,7 @@ section.
 
 **[0:00 relative to this section]**
 
-Both kronos-semi and COMSOL Semiconductor share the same underlying
+Both SemiSim and COMSOL Semiconductor share the same underlying
 classical physics: Poisson's equation coupled with drift-diffusion
 continuity equations for electrons and holes. They agree on the
 governing PDE set and on the form of the Shockley-Read-Hall
@@ -35,7 +35,7 @@ recombination kernel.
 
 Where they diverge is in the breadth of the **physics catalog**:
 
-| Physics feature | COMSOL Semiconductor | kronos-semi (v0.16) |
+| Physics feature | COMSOL Semiconductor | SemiSim (v0.16) |
 |---|---|---|
 | Drift-diffusion (Poisson + 2 continuity) | ✓ | ✓ |
 | Boltzmann carrier statistics | ✓ | ✓ |
@@ -58,7 +58,7 @@ Where they diverge is in the breadth of the **physics catalog**:
 | Trap-assisted tunneling (TAT) | ✓ | planned M16.6 |
 | Heterostructures / position-dep. band gap | ✓ | planned M17 |
 
-The honest summary: COMSOL has a wider physics catalog. kronos-semi
+The honest summary: COMSOL has a wider physics catalog. SemiSim
 covers the classical drift-diffusion core that describes most
 silicon devices operating below 10¹⁹ cm⁻³ doping and at moderate
 fields. The M16 roadmap closes the most important gaps; quantum effects
@@ -67,7 +67,7 @@ and electrothermal are out of scope for the current version.
 **Key points**
 - Both solve the same classical drift-diffusion PDE set.
 - COMSOL's catalog includes advanced recombination, quantum corrections,
-  and electrothermal; these are planned or out-of-scope for kronos-semi.
+  and electrothermal; these are planned or out-of-scope for SemiSim.
 - The classical silicon core (pn junction, MOSFET, MOSCAP) is fully
   covered and verified.
 
@@ -78,7 +78,7 @@ and electrothermal are out of scope for the current version.
 **[2:00]**
 
 This is where the approaches diverge most significantly, and where
-kronos-semi makes a different set of tradeoffs.
+SemiSim makes a different set of tradeoffs.
 
 **COMSOL Semiconductor Module solver strategy:**
 - Proprietary PARDISO direct solver (default) with algebraic
@@ -95,7 +95,7 @@ kronos-semi makes a different set of tradeoffs.
 - Convergence monitoring is exposed through the GUI but not
   programmatically inspectable at each Newton step.
 
-**kronos-semi solver strategy:**
+**SemiSim solver strategy:**
 - PETSc SNES Newton with MUMPS LU (CPU) or AMGX/hypre BoomerAMG
   (GPU), all configurable through the JSON `solver` block.
 - **Slotboom (quasi-Fermi) transformation** instead of
@@ -113,7 +113,7 @@ kronos-semi makes a different set of tradeoffs.
   step, every linear solve time is written to the artifact tree and
   visible in the logs.
 
-| Solver dimension | COMSOL | kronos-semi |
+| Solver dimension | COMSOL | SemiSim |
 |---|---|---|
 | Primary unknowns | ψ, n, p (or Boltzmann form) | ψ, Φ_n, Φ_p (Slotboom) |
 | DD discretization | Scharfetter-Gummel (FV-on-FEM) | Galerkin FEM on pure-gradient form |
@@ -126,12 +126,12 @@ kronos-semi makes a different set of tradeoffs.
 
 **Key points**
 - SG is optimal for 1D FV; Slotboom is optimal for FEM in 3D.
-- MMS confirms 2nd-order L² convergence for kronos-semi DD; this is
+- MMS confirms 2nd-order L² convergence for SemiSim DD; this is
   higher than typical SG in 2D/3D.
-- COMSOL's nonlinear solver is opaque; kronos-semi exposes every
+- COMSOL's nonlinear solver is opaque; SemiSim exposes every
   step for inspection and scripting.
 - COMSOL has no GPU linear-solver path in the Semiconductor Module;
-  kronos-semi does (M15).
+  SemiSim does (M15).
 
 ---
 
@@ -151,7 +151,7 @@ kronos-semi makes a different set of tradeoffs.
 - Typical geometry + mesh + physics setup: 30–60 minutes GUI work for
   a new device.
 
-**kronos-semi geometry workflow:**
+**SemiSim geometry workflow:**
 - **Built-in generators** for axis-aligned 1D/2D/3D boxes (adequate
   for benchmarks and most first-principles studies).
 - **gmsh .msh import**: for arbitrary geometry, create the mesh in
@@ -165,7 +165,7 @@ kronos-semi makes a different set of tradeoffs.
 - Physical groups in gmsh are mapped to material regions and contact
   facets by integer tag in the JSON `regions` block.
 
-| Geometry dimension | COMSOL | kronos-semi |
+| Geometry dimension | COMSOL | SemiSim |
 |---|---|---|
 | CAD kernel | Yes (built-in + LiveLink) | No (use gmsh externally) |
 | GUI-driven setup | Yes | No (JSON only) |
@@ -178,7 +178,7 @@ kronos-semi makes a different set of tradeoffs.
 **Key points**
 - COMSOL's CAD kernel is a significant advantage for complex geometry.
 - For rectangular/cylindrical devices (the vast majority of benchmarks),
-  kronos-semi's built-in generators require zero external tools.
+  SemiSim's built-in generators require zero external tools.
 - For non-rectangular geometry, gmsh + .msh import is the recommended
   workflow; gmsh is free and its Python API is scriptable.
 
@@ -188,7 +188,7 @@ kronos-semi makes a different set of tradeoffs.
 
 **[6:00]**
 
-This is the dimension where kronos-semi makes the strongest claim of
+This is the dimension where SemiSim makes the strongest claim of
 superiority over COMSOL.
 
 **COMSOL I/O:**
@@ -203,7 +203,7 @@ superiority over COMSOL.
   not captured in export scripts. A `.mph` file from COMSOL 6.0 may
   not open identically in COMSOL 6.2.
 
-**kronos-semi I/O:**
+**SemiSim I/O:**
 - A simulation is **fully determined** by a JSON file and a package
   version. No binary file, no GUI state.
 - The JSON schema is versioned (`v2.0.0`), validated against JSON
@@ -213,11 +213,11 @@ superiority over COMSOL.
 - Results land in `runs/<run_id>/` as a schema-validated
   `manifest.json`, XDMF field files, IV CSVs, and convergence logs.
   Any tool that can read JSON and XDMF can consume them.
-- The HTTP API (`POST /solve`, `GET /runs/{id}`) makes kronos-semi
+- The HTTP API (`POST /solve`, `GET /runs/{id}`) makes SemiSim
   callable from any language, any UI, any AI assistant — without a
   Python runtime on the client side.
 
-| I/O dimension | COMSOL | kronos-semi |
+| I/O dimension | COMSOL | SemiSim |
 |---|---|---|
 | Simulation file format | `.mph` (proprietary binary) | JSON (open, text) |
 | Version-compatible replay | Fragile across COMSOL versions | JSON + package version = full spec |
@@ -225,15 +225,15 @@ superiority over COMSOL.
 | Results format | GUI export, CSV/MAT | XDMF + CSV + JSON (automatic) |
 | Scriptable without installation | No (requires COMSOL) | Yes (any HTTP client) |
 | AI assistant / LLM compatible | No | Yes (JSON readable/writable) |
-| Reproducibility guarantee | COMSOL version + .mph | JSON file + `pip install kronos-semi==x.y.z` |
+| Reproducibility guarantee | COMSOL version + .mph | JSON file + `pip install SemiSim==x.y.z` |
 
 **Key points**
 - The JSON-as-contract approach is the single biggest architectural
   differentiator.
 - A `.mph` file requires COMSOL to open; a JSON file requires nothing.
 - AI assistants (LLMs, Copilot agents) can inspect and generate
-  kronos-semi device specs without executing any code.
-- Reproducibility in COMSOL is a documentation burden; in kronos-semi
+  SemiSim device specs without executing any code.
+- Reproducibility in COMSOL is a documentation burden; in SemiSim
   it is automatic.
 
 ---
@@ -252,7 +252,7 @@ superiority over COMSOL.
 - A new physics module (e.g., a custom recombination term) requires
   COMSOL expertise and cannot be unit-tested with MMS outside COMSOL.
 
-**kronos-semi extensibility:**
+**SemiSim extensibility:**
 - MIT license. Every line of the solver, weak form, and boundary
   condition is inspectable and modifiable.
 - A new physics term is a new UFL weak-form expression in
@@ -264,7 +264,7 @@ superiority over COMSOL.
 - Runnable on Google Colab with zero local install (Docker image or
   the Colab-FEniCSx setup script).
 
-| Extensibility dimension | COMSOL | kronos-semi |
+| Extensibility dimension | COMSOL | SemiSim |
 |---|---|---|
 | Source code inspectable | No | Yes (MIT) |
 | Custom PDE terms | Yes (proprietary interface) | Yes (standard UFL Python) |
@@ -286,7 +286,7 @@ superiority over COMSOL.
 
 **[10:00]**
 
-This is a dimension where kronos-semi makes a stronger engineering
+This is a dimension where SemiSim makes a stronger engineering
 claim than COMSOL's default user workflow.
 
 **COMSOL V&V practice:**
@@ -300,7 +300,7 @@ claim than COMSOL's default user workflow.
 - A change to COMSOL's solver is not accompanied by a public regression
   test suite.
 
-**kronos-semi V&V practice:**
+**SemiSim V&V practice:**
 - Every shipped device capability has a registered analytical verifier
   in the test suite. Verification is not optional.
 - The MMS suite covers Poisson 1D/2D, multi-region Poisson, and three
@@ -312,7 +312,7 @@ claim than COMSOL's default user workflow.
 - The V&V suite is public, runnable, and reproducible from the
   repository without any license.
 
-| V&V dimension | COMSOL | kronos-semi |
+| V&V dimension | COMSOL | SemiSim |
 |---|---|---|
 | Bundled benchmark library | Yes (App Library) | Yes (benchmarks/) |
 | Automated convergence (MMS) suite | No | Yes |
@@ -322,8 +322,8 @@ claim than COMSOL's default user workflow.
 | Regression-tested on every commit | No | Yes (GitHub Actions) |
 
 **Key points**
-- COMSOL's App Library is validation; kronos-semi's MMS suite is
-  verification. Both are needed; only kronos-semi runs both
+- COMSOL's App Library is validation; SemiSim's MMS suite is
+  verification. Both are needed; only SemiSim runs both
   automatically.
 - The 95% coverage gate means a change that breaks an untested code
   path must add a test before merging.
@@ -341,7 +341,7 @@ Both tools are legitimate; the right choice depends on the problem.
 **Use COMSOL Semiconductor Module when:**
 - You need quantum corrections (density-gradient) or
   electrothermal coupling — these are mature in COMSOL and not yet
-  in kronos-semi.
+  in SemiSim.
 - You are working with complex 3D device geometry and need a full
   parametric CAD kernel with GUI meshing.
 - Your team already has COMSOL licenses and institutional support.
@@ -350,7 +350,7 @@ Both tools are legitimate; the right choice depends on the problem.
 - You need advanced optical or RF co-simulation through COMSOL's
   multiphysics coupling.
 
-**Use kronos-semi when:**
+**Use SemiSim when:**
 - You need full transparency into the solver: every weak form, every
   Newton step, every residual is inspectable and modifiable.
 - You are a graduate student or research group without COMSOL funding.
@@ -365,7 +365,7 @@ Both tools are legitimate; the right choice depends on the problem.
 - You want a GPU linear-solver path that operates transparently
   without changing input files.
 
-| Decision factor | Choose COMSOL | Choose kronos-semi |
+| Decision factor | Choose COMSOL | Choose SemiSim |
 |---|---|---|
 | Quantum corrections / electrothermal | ✓ | — |
 | Complex CAD geometry (GUI-driven) | ✓ | — |
@@ -380,10 +380,10 @@ Both tools are legitimate; the right choice depends on the problem.
 **Key points**
 - COMSOL's advantages are its physics breadth, CAD kernel, and
   institutional maturity.
-- kronos-semi's advantages are transparency, cost, reproducibility,
+- SemiSim's advantages are transparency, cost, reproducibility,
   extensibility, and open-source AI-compatible workflow.
 - These tools are complementary, not mutually exclusive. A research
-  group might prototype in kronos-semi (free, scriptable) and validate
+  group might prototype in SemiSim (free, scriptable) and validate
   against COMSOL for the final physical result.
 
 **Transition:** For a quick-reference glossary of all terms and

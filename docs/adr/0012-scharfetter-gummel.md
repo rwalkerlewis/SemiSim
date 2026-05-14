@@ -41,7 +41,7 @@ Stable evaluation in four regimes:
 
 ### 1D edge flux
 
-For an edge connecting nodes `i, j` with edge length `h_ij` and scaled potential difference `dpsi = psi_hat_j - psi_hat_i`, the SG electron flux on the edge, in the **Sandia / Farrell-et-al convention** (the same convention the existing `evaluate_partial_currents` resolves to once the kronos-semi `phi_n` sign convention is unwound):
+For an edge connecting nodes `i, j` with edge length `h_ij` and scaled potential difference `dpsi = psi_hat_j - psi_hat_i`, the SG electron flux on the edge, in the **Sandia / Farrell-et-al convention** (the same convention the existing `evaluate_partial_currents` resolves to once the SemiSim `phi_n` sign convention is unwound):
 
 ```
 F_n_ij = (mu_n * V_t / h_ij) * ( n_j * B(+dpsi) - n_i * B(-dpsi) )
@@ -70,13 +70,13 @@ Spevak's TU Wien thesis Section 3.2.6 uses the **opposite** convention (electron
 
 The existing `semi/postprocess.py::evaluate_partial_currents` computes
 `J_n = q mu_n n grad(phi_n) . n_outward` (Slotboom form). Unwinding the
-kronos-semi `phi_n` sign convention (the BC sets `phi_n = +V_applied` at
+SemiSim `phi_n` sign convention (the BC sets `phi_n = +V_applied` at
 ohmic contacts, which is sign-flipped from the textbook
 `phi_n = -V_applied`):
 
-- `phi_n_kronos = -phi_n_textbook`
-- `grad(phi_n_kronos) = -grad(phi_n_textbook)`
-- `J_n_kronos = +q mu_n n grad(phi_n_kronos) = -q mu_n n grad(phi_n_textbook) = J_n_textbook`
+- `phi_n_semisim = -phi_n_textbook`
+- `grad(phi_n_semisim) = -grad(phi_n_textbook)`
+- `J_n_semisim = +q mu_n n grad(phi_n_semisim) = -q mu_n n grad(phi_n_textbook) = J_n_textbook`
 
 So `evaluate_partial_currents` returns the textbook conventional electron current density. At zero field with `n_j > n_i` along the outward direction, this is `+q D_n grad(n) > 0`. The SG flux above also gives `> 0` at the same configuration. They agree on sign. M13.1 changes the IV recorder in `transient.py` to use the SG edge fluxes directly instead of recomputing from `(n, psi)` via the Slotboom intermediate; the terminal-current sign at ohmic contacts remains the M12 / ADR 0008 sign convention end-to-end.
 
@@ -86,7 +86,7 @@ For each simplicial element, iterate over its edges. For each edge `e_ij` of len
 
 1. Compute `dpsi = psi_hat_j - psi_hat_i` from the per-element vertex DOFs.
 2. Compute the SG flux scalar `F_n_ij` per the 1D formula above.
-3. Scale by the dual-side length `|partial C_ij|`. For a P1 simplicial mesh in the lumped-mass approximation this equals `area(K) / 3` in 2D for each of the three element edges (area-share of the dual control volume around vertex i contributed by element K, attributed equally to each of the two edges incident at i within K). In 3D the analogous fraction is `volume(K) / 4` per edge per tet, but kronos-semi does not target 3D transient before M16 so this is documented for future work, not implemented.
+3. Scale by the dual-side length `|partial C_ij|`. For a P1 simplicial mesh in the lumped-mass approximation this equals `area(K) / 3` in 2D for each of the three element edges (area-share of the dual control volume around vertex i contributed by element K, attributed equally to each of the two edges incident at i within K). In 3D the analogous fraction is `volume(K) / 4` per edge per tet, but SemiSim does not target 3D transient before M16 so this is documented for future work, not implemented.
 4. Scatter `F_n_ij * |partial C_ij|` into the residual entry for vertex `i` with sign `-` (efflux from i) and into vertex `j` with sign `+` (influx into j). Hole flux mirror this.
 
 **This is an approximation.** The full Brezzi-Marini-Pietra / Bochev construction weights the per-edge SG flux by the lowest-order Nedelec H(curl) edge basis function projected onto the dual control-volume side; for P1 simplicial elements with the lumped-mass / nearest-neighbour control volume the weight collapses to the dual-side length `|partial C_ij|` exactly only for isotropic, well-shaped elements. For higher-order elements, anisotropic meshes, or curved control volumes the full Nedelec weighting (Sandia 2011-3865 Eqs 22-29) is required. M13.1 ships the lumped approximation; if a future benchmark exposes an anisotropic-mesh failure the fix is to swap in the full edge-element weighting without changing the per-edge flux scalar. This deferred work is captured in the **Forward notes** section below.

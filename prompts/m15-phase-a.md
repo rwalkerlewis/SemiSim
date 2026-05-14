@@ -166,7 +166,7 @@ Do **not** push. The owner reviews locally and pushes manually.
 - [ ] No em dashes introduced in any prose line touched
       (PLAN.md invariant 8). Existing em dashes elsewhere in the
       file are out of scope for this commit.
-- [ ] No source files (`semi/`, `kronos_server/`) modified.
+- [ ] No source files (`semi/`, `semisim_server/`) modified.
 - [ ] `tests/check_analytical_math.py` runs to completion offline
       (no dolfinx) when invoked directly.
 - [ ] `PLAN.md` "Completed work log" entries are unchanged.

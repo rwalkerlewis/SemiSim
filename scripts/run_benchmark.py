@@ -1122,19 +1122,19 @@ def _mosfet_device_params(cfg, mat):
     )
     # `analytical_moscap_params` returns V_fb / V_t in the textbook
     # bulk-Fermi reference (V_fb = phi_ms - Q_f/C_ox, intrinsic at the
-    # surface in equilibrium has psi_s = 0). The kronos-semi engine BC
+    # surface in equilibrium has psi_s = 0). The SemiSim engine BC
     # convention pins psi = 0 at the intrinsic Fermi level (ohmic body
     # equilibrium has psi_body = -phi_F), shifting both V_fb and V_T
     # down by phi_F. The same convention shift is applied in the
     # `_mos_device_params` helper used by the M6 mos_2d verifier; see
     # docs/mos_derivation.md section 6 for the derivation.
     phi_F_mag = moscap.phi_B
-    V_T_kronos = moscap.V_t - phi_F_mag
-    V_FB_kronos = moscap.V_fb - phi_F_mag
+    V_T_semisim = moscap.V_t - phi_F_mag
+    V_FB_semisim = moscap.V_fb - phi_F_mag
 
     return dict(
-        V_T=V_T_kronos,
-        V_FB=V_FB_kronos,
+        V_T=V_T_semisim,
+        V_FB=V_FB_semisim,
         phi_F=phi_F_mag,
         C_ox=moscap.C_ox_per_area,
         L_ch=L_ch,
@@ -2577,7 +2577,7 @@ def plot_schottky_1d(result, out_dir: Path) -> list[Path]:
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(7, 8), sharex=True)
     ax1.plot(V_th, J_th, "-", color="C0", label="thermionic analytical")
-    ax1.plot(V_fem, J_fem, "s", color="C1", label="FEM (kronos-semi)")
+    ax1.plot(V_fem, J_fem, "s", color="C1", label="FEM (SemiSim)")
     ax1.set_ylabel("|J| (A/m^2)")
     ax1.grid(True, alpha=0.3)
     ax1.legend()
@@ -2585,7 +2585,7 @@ def plot_schottky_1d(result, out_dir: Path) -> list[Path]:
     ax2.semilogy(V_th, np.maximum(J_th, 1.0e-30), "-", color="C0",
                  label="thermionic analytical")
     ax2.semilogy(V_fem, np.maximum(J_fem, 1.0e-30), "s", color="C1",
-                 label="FEM (kronos-semi)")
+                 label="FEM (SemiSim)")
     ax2.set_xlabel("V_anode (V)")
     ax2.set_ylabel("|J| (A/m^2)")
     ax2.grid(True, which="both", alpha=0.3)
@@ -2776,7 +2776,7 @@ def plot_zener_1d(result, out_dir: Path) -> list[Path]:
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(7, 8), sharex=True)
     ax1.plot(V_th, J_th, "-", color="C0", label="Kane analytical")
-    ax1.plot(V_fem, J_fem, "s", color="C1", label="FEM (kronos-semi)")
+    ax1.plot(V_fem, J_fem, "s", color="C1", label="FEM (SemiSim)")
     ax1.set_ylabel("|J| (A/m^2)")
     ax1.grid(True, alpha=0.3)
     ax1.legend()
@@ -2784,7 +2784,7 @@ def plot_zener_1d(result, out_dir: Path) -> list[Path]:
     ax2.semilogy(V_th, np.maximum(J_th, 1.0e-30), "-", color="C0",
                  label="Kane analytical")
     ax2.semilogy(V_fem, np.maximum(J_fem, 1.0e-30), "s", color="C1",
-                 label="FEM (kronos-semi)")
+                 label="FEM (SemiSim)")
     ax2.set_xlabel("V_anode (V)")
     ax2.set_ylabel("|J| (A/m^2)")
     ax2.grid(True, which="both", alpha=0.3)
@@ -3803,7 +3803,7 @@ def find_json(bench_dir: Path, name: str) -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run a kronos-semi benchmark.")
+    parser = argparse.ArgumentParser(description="Run a SemiSim benchmark.")
     parser.add_argument("name", help="benchmark directory name under benchmarks/")
     parser.add_argument("--input", help="explicit JSON path (overrides lookup)")
     parser.add_argument(

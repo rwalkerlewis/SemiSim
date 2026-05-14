@@ -1,5 +1,5 @@
 """
-Tests for the M10 kronos_server HTTP API.
+Tests for the M10 semisim_server HTTP API.
 
 FEM-heavy tests (real /solve end-to-end) are skipped when dolfinx is
 unavailable, matching the M9 test convention. Pure-Python tests
@@ -28,7 +28,7 @@ except ImportError:
 
 pytestmark = pytest.mark.skipif(
     not HAS_SERVER_DEPS,
-    reason="kronos_server requires fastapi + httpx (install with pip install -e '.[server]')",
+    reason="semisim_server requires fastapi + httpx (install with pip install -e '.[server]')",
 )
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -40,14 +40,14 @@ PN_1D_BIAS_JSON = BENCHMARKS_DIR / "pn_1d_bias" / "pn_junction_bias.json"
 @pytest.fixture
 def server_app(tmp_path, monkeypatch):
     """Build a fresh app rooted at a temp runs dir and exercise its lifespan."""
-    monkeypatch.setenv("KRONOS_SERVER_RUNS_DIR", str(tmp_path))
-    monkeypatch.setenv("KRONOS_SERVER_WORKERS", "2")
+    monkeypatch.setenv("SEMISIM_SERVER_RUNS_DIR", str(tmp_path))
+    monkeypatch.setenv("SEMISIM_SERVER_WORKERS", "2")
     monkeypatch.setenv(
-        "KRONOS_SERVER_CORS_ORIGINS",
+        "SEMISIM_SERVER_CORS_ORIGINS",
         "http://localhost:3000,http://example.com",
     )
-    from kronos_server.app import build_app
-    from kronos_server.config import Settings
+    from semisim_server.app import build_app
+    from semisim_server.config import Settings
     settings = Settings()
     app = build_app(settings)
     return app
@@ -96,7 +96,7 @@ def test_capabilities(client):
     r = client.get("/capabilities")
     assert r.status_code == 200
     body = r.json()
-    assert body["engine"]["name"] == "kronos-semi"
+    assert body["engine"]["name"] == "SemiSim"
     # M13 (transient) and M14 (ac_sweep) are shipped as of v0.14.x.
     assert "equilibrium" in body["solver_types"]
     assert "transient" in body["solver_types"]
@@ -149,7 +149,7 @@ def test_openapi_and_docs(client):
     r = client.get("/openapi.json")
     assert r.status_code == 200
     spec = r.json()
-    assert spec["info"]["title"] == "kronos-semi HTTP server"
+    assert spec["info"]["title"] == "SemiSim HTTP server"
     assert "/solve" in spec["paths"]
     assert "/runs/{run_id}" in spec["paths"]
     assert "/capabilities" in spec["paths"]

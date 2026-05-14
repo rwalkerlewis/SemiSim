@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "kronos-semi input v1",
-  "description": "Top-level input configuration for a kronos-semi simulation run. Describes the device geometry, materials, doping, contacts, physics models, solver parameters, and output controls. This schema is the contract between the UI form-builder and the engine; see docs/IMPROVEMENT_GUIDE.md §4 M11.",
+  "title": "SemiSim input v1",
+  "description": "Top-level input configuration for a SemiSim simulation run. Describes the device geometry, materials, doping, contacts, physics models, solver parameters, and output controls. This schema is the contract between the UI form-builder and the engine; see docs/IMPROVEMENT_GUIDE.md §4 M11.",
   "type": "object",
   "required": ["schema_version", "name", "dimension", "mesh", "regions", "doping", "contacts"],
   "properties": {

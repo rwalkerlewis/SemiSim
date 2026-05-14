@@ -23,7 +23,7 @@ density terms) and its smallest is $\sim 10^{-11}$ (permittivity). The
 condition number is order $10^{30}$ and double-precision floating-point
 arithmetic returns nonsense. Every device simulator ever written has
 solved this with nondimensionalization: scale every variable so the
-scaled versions are O(1). The kronos-semi engine's choice of scales is
+scaled versions are O(1). The SemiSim engine's choice of scales is
 the textbook one (Selberherr Ch. 7), with one twist: the spatial
 coordinate stays in physical meters while everything else is scaled.
 That choice has consequences which the M1 coefficient bug — preserved
@@ -116,7 +116,7 @@ $\varepsilon_r$ ([`semi/scaling.py:62-70`](../../semi/scaling.py)).
 ### The mesh-stays-in-meters subtlety
 
 If you naively rewrote (12.1) with the gradient operator scaled
-($\nabla \to \nabla/L_0$), you would get $-\lambda^2\varepsilon_r\Delta\hat\psi = \hat\rho$ with $\Delta = $ scaled Laplacian. But the kronos-semi
+($\nabla \to \nabla/L_0$), you would get $-\lambda^2\varepsilon_r\Delta\hat\psi = \hat\rho$ with $\Delta = $ scaled Laplacian. But the SemiSim
 mesh stays in physical meters, so $\nabla$ in the UFL form is the
 physical gradient (1/m). The coefficient is therefore $L_D^2 = \lambda^2 L_0^2$:
 
@@ -329,7 +329,7 @@ condition number is sub-optimal during the solve.
 
 - **Selberherr, *Analysis and Simulation of Semiconductor Devices*
   (1984), Chapter 7.** The standard reference for nondimensionalization
-  in DD. The kronos-semi scaling matches Selberherr's choice.
+  in DD. The SemiSim scaling matches Selberherr's choice.
 - **Brezzi, Marini, Pietra (1989).** "Two-dimensional exponential
   fitting and applications to drift-diffusion models." Discusses why
   $\lambda^2 \ll 1$ is a singular perturbation and how that drives

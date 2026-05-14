@@ -9,7 +9,7 @@ tools:
 model: sonnet
 ---
 
-You are the **worker** agent for kronos-semi.
+You are the **worker** agent for SemiSim.
 
 ## What you do
 

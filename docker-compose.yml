@@ -17,38 +17,38 @@ services:
       args:
         USER_UID: "${UID:-1000}"
         USER_GID: "${GID:-1000}"
-    image: kronos-semi:dev
-    container_name: kronos-semi-dev
-    working_dir: /workspaces/kronos-semi
+    image: semisim:dev
+    container_name: SemiSim-dev
+    working_dir: /workspaces/SemiSim
     volumes:
-      - .:/workspaces/kronos-semi:cached
+      - .:/workspaces/SemiSim:cached
     # Keep the container alive for `docker compose exec`.
     command: sleep infinity
     stdin_open: true
     tty: true
 
   test:
-    image: kronos-semi:dev
-    working_dir: /workspaces/kronos-semi
+    image: semisim:dev
+    working_dir: /workspaces/SemiSim
     volumes:
-      - .:/workspaces/kronos-semi:cached
+      - .:/workspaces/SemiSim:cached
     command: pytest
 
   benchmark:
-    image: kronos-semi:dev
-    working_dir: /workspaces/kronos-semi
+    image: semisim:dev
+    working_dir: /workspaces/SemiSim
     volumes:
-      - .:/workspaces/kronos-semi:cached
+      - .:/workspaces/SemiSim:cached
     environment:
       - MPLBACKEND=Agg
     entrypoint: ["python", "scripts/run_benchmark.py"]
     command: ["pn_1d"]
 
   jupyter:
-    image: kronos-semi:dev
-    working_dir: /workspaces/kronos-semi
+    image: semisim:dev
+    working_dir: /workspaces/SemiSim
     volumes:
-      - .:/workspaces/kronos-semi:cached
+      - .:/workspaces/SemiSim:cached
     ports:
       - "8888:8888"
     command: >
@@ -58,18 +58,18 @@ services:
         --no-browser
         --ServerApp.token=''
         --ServerApp.password=''
-        --ServerApp.root_dir=/workspaces/kronos-semi
+        --ServerApp.root_dir=/workspaces/SemiSim
 
   server:
-    image: kronos-semi:dev
-    working_dir: /workspaces/kronos-semi
-    command: kronos-server
+    image: semisim:dev
+    working_dir: /workspaces/SemiSim
+    command: semisim-server
     environment:
-      KRONOS_SERVER_HOST: "0.0.0.0"
-      KRONOS_SERVER_PORT: "8000"
-      KRONOS_SERVER_WORKERS: "2"
-      KRONOS_SERVER_RUNS_DIR: "/workspaces/kronos-semi/runs"
+      SEMISIM_SERVER_HOST: "0.0.0.0"
+      SEMISIM_SERVER_PORT: "8000"
+      SEMISIM_SERVER_WORKERS: "2"
+      SEMISIM_SERVER_RUNS_DIR: "/workspaces/SemiSim/runs"
     ports:
       - "8000:8000"
     volumes:
-      - .:/workspaces/kronos-semi:cached
+      - .:/workspaces/SemiSim:cached

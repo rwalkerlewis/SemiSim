@@ -11,9 +11,9 @@ import nbformat as nbf
 nb = nbf.v4.new_notebook()
 cells = []
 
-cells.append(nbf.v4.new_markdown_cell(r"""# kronos-semi · Notebook 03: MOS Capacitor C-V (2D, Si/SiO$_2$)
+cells.append(nbf.v4.new_markdown_cell(r"""# SemiSim · Notebook 03: MOS Capacitor C-V (2D, Si/SiO$_2$)
 
-First 2D and first multi-region benchmark in kronos-semi. A p-type silicon substrate (500 nm, $N_A = 10^{17}$ cm⁻³) carries a 5 nm SiO$_2$ gate oxide; the gate contact sweeps from deep accumulation through depletion and into strong inversion. The notebook:
+First 2D and first multi-region benchmark in SemiSim. A p-type silicon substrate (500 nm, $N_A = 10^{17}$ cm⁻³) carries a 5 nm SiO$_2$ gate oxide; the gate contact sweeps from deep accumulation through depletion and into strong inversion. The notebook:
 
 1. Runs multi-region equilibrium Poisson at $V_{gate} = 0$ and renders the 2D $\psi(x, y)$ contour.
 2. Runs the full $V_{gate}$ sweep and compares the simulated $C(V_{gate}) = dQ_{gate}/dV_{gate}$ against the depletion-approximation theory curve.
@@ -22,7 +22,7 @@ The multi-region plumbing is a single dolfinx mesh with cellwise $\varepsilon_r$
 
 ## Notebook set
 
-This is the third of four Colab walkthroughs that exercise the [end-of-M7 capability matrix](https://github.com/rwalkerlewis/kronos-semi#status) from the README:
+This is the third of four Colab walkthroughs that exercise the [end-of-M7 capability matrix](https://github.com/rwalkerlewis/SemiSim#status) from the README:
 
 | Notebook | Covers |
 |----------|--------|
@@ -33,7 +33,7 @@ This is the third of four Colab walkthroughs that exercise the [end-of-M7 capabi
 
 **What this notebook does:**
 1. Installs `dolfinx` on Colab via [FEM on Colab](https://fem-on-colab.github.io/) (one wget, ~30 s)
-2. Clones the [kronos-semi](https://github.com/rwalkerlewis/kronos-semi) repo
+2. Clones the [SemiSim](https://github.com/rwalkerlewis/SemiSim) repo
 3. Loads `benchmarks/mos_2d/mos_cap.json`
 4. Solves equilibrium at $V_{gate} = 0$ and plots the 2D $\psi$ field with `matplotlib.tri.Triangulation` + `tricontourf`
 5. Runs the full sweep $V_{gate} \in [-0.9, +1.2]$ V in 0.05 V steps (43 bias points)
@@ -63,10 +63,10 @@ cells.append(nbf.v4.new_markdown_cell(r"""## 2. Clone the repo and install the p
 Same pattern as Notebooks 01 and 02 — `pip install -e` so any source edits you make persist in the Colab session."""))
 
 cells.append(nbf.v4.new_code_cell(r"""import os
-if not os.path.exists('kronos-semi'):
-    !git clone -q https://github.com/rwalkerlewis/kronos-semi.git
+if not os.path.exists('SemiSim'):
+    !git clone -q https://github.com/rwalkerlewis/SemiSim.git
 
-%cd kronos-semi
+%cd SemiSim
 !pip install -q -e .
 print("Package installed.")
 """))
@@ -210,7 +210,7 @@ The benchmark's verifier window is $V_{gate} \in [V_{FB}+0.2,\ V_T-0.1]$ V, **no
 
 **The fix.** Per the reviewer's standing guidance ("if the verifier's tolerance is held at 10%, the right debugging action on a near-miss is to shrink the window, not loosen the tolerance"), the low edge moved from $V_{FB}+0.1$ to $V_{FB}+0.2$. The new window's worst error is **9.25% at $V_{gate} = -0.200$ V** (the low edge itself). See `docs/mos_derivation.md` §6.9 and `docs/PHYSICS.md` §6 for the full derivation and disclosure.
 
-**Why surfacing this here matters.** A KronosAI reviewer reading the Colab sees the design choice where it applies, instead of having to cross-reference the PR body or CHANGELOG. The simulated C-V is correct outside the verifier window too; what is gated is the narrow regime where the *analytical* reference curve is trustworthy."""))
+**Why surfacing this here matters.** A SemiSim reviewer reading the Colab sees the design choice where it applies, instead of having to cross-reference the PR body or CHANGELOG. The simulated C-V is correct outside the verifier window too; what is gated is the narrow regime where the *analytical* reference curve is trustworthy."""))
 
 cells.append(nbf.v4.new_code_cell(r"""from semi.materials import get_material
 from semi.constants import Q, EPS0, cm3_to_m3
@@ -284,7 +284,7 @@ if mask.any():
 """))
 
 cells.append(nbf.v4.new_code_cell(r"""fig, ax = plt.subplots(figsize=(7, 4.5))
-ax.plot(V, C_sim * 1e2, "o-", color="C0", ms=4, lw=1.8, label="simulation (kronos-semi)")
+ax.plot(V, C_sim * 1e2, "o-", color="C0", ms=4, lw=1.8, label="simulation (SemiSim)")
 finite = np.isfinite(C_th)
 ax.plot(V[finite], C_th[finite] * 1e2, "r--", lw=1.5, label="depletion-approx theory")
 ax.axhline(C_ox * 1e2, color="k", ls=":", lw=1.0, label=r"$C_{ox}$")
@@ -324,7 +324,7 @@ cells.append(nbf.v4.new_markdown_cell(r"""## Summary
 
 **Next up.** Notebook 04 moves from 2D quasi-static C-V to a 3D doped resistor V-I sweep, compares the builtin box mesh to a gmsh `.msh` fixture, and anchors both against the ohmic line $I = V/R$.
 
-See [the repo](https://github.com/rwalkerlewis/kronos-semi) and its [capability matrix](https://github.com/rwalkerlewis/kronos-semi#status) for the full scope."""))
+See [the repo](https://github.com/rwalkerlewis/SemiSim) and its [capability matrix](https://github.com/rwalkerlewis/SemiSim#status) for the full scope."""))
 
 nb.cells = cells
 

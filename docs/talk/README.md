@@ -1,7 +1,7 @@
-# Talk: kronos-semi Speaker Notes
+# Talk: SemiSim Speaker Notes
 
 This folder contains a complete set of speaker notes for a 25–30 minute
-talk on kronos-semi: what the code does, how it was built, and why it was
+talk on SemiSim: what the code does, how it was built, and why it was
 designed the way it was.
 
 ## Files

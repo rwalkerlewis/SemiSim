@@ -29,7 +29,7 @@ where possible.
   2nd ed. Prentice Hall. Quantum-mechanical foundations of band theory.
 
 - **Hu, C. (2010).** *Modern Semiconductor Devices for Integrated
-  Circuits*. Pearson. Chapter 5 is the C-V chapter that the kronos-semi
+  Circuits*. Pearson. Chapter 5 is the C-V chapter that the SemiSim
   M14.2 axisymmetric MOSCAP benchmark reproduces (Hu Fig. 5-18).
   Chapter 4 covers the pn-junction picture used by the M3 reverse-bias
   verifier.
@@ -54,7 +54,7 @@ where possible.
   Devices*. Springer. The classic device-simulation reference.
   Chapter 3 derives DD from the BTE moments; Chapter 5 §5.4 covers
   Slotboom variables; Chapter 7 covers nondimensionalization
-  (matches kronos-semi); Chapter 8 covers nonlinear solvers and
+  (matches SemiSim); Chapter 8 covers nonlinear solvers and
   continuation.
 
 - **Vasileska, D., Goodnick, S. M., and Klimeck, G. (2010).**
@@ -68,7 +68,7 @@ where possible.
 
 - **Brezzi, F., and Boffi, D. (2003).** *Mixed and Hybrid Finite
   Element Methods*. Springer. For mixed-formulation FEM; relevant
-  background even though kronos-semi uses pure $H^1$-conforming
+  background even though SemiSim uses pure $H^1$-conforming
   Lagrange.
 
 - **Brenner, S. C., and Scott, L. R. (2008).** *The Mathematical
@@ -79,7 +79,7 @@ where possible.
 - **Logg, A., Mardal, K.-A., and Wells, G. N. (2012).** *Automated
   Solution of Differential Equations by the Finite Element Method*.
   Springer. The FEniCS book. Free online. Chapter 1 is enough for
-  what kronos-semi does.
+  what SemiSim does.
 
 - **Hairer, E., Nørsett, S. P., and Wanner, G. (1996).** *Solving
   Ordinary Differential Equations II: Stiff and Differential-
@@ -142,7 +142,7 @@ where possible.
 - **Scharfetter, D. L., and Gummel, H. K. (1969).** "Large-signal
   analysis of a silicon Read diode oscillator." *IEEE Trans. Electron
   Devices* 16, 64-77. The original Scharfetter-Gummel discretization;
-  kronos-semi's M13.1 ships Scharfetter-Gummel primitives in
+  SemiSim's M13.1 ships Scharfetter-Gummel primitives in
   [`semi/fem/scharfetter_gummel.py`](../../semi/fem/scharfetter_gummel.py)
   for future use though Slotboom is the active path.
 
@@ -188,7 +188,7 @@ where possible.
 
 - **Caughey, D. M., and Thomas, R. E. (1967).** "Carrier mobilities in
   silicon empirically related to doping and field." *Proc. IEEE* 55,
-  2192-2193. The kronos-semi M16.1 closed-form.
+  2192-2193. The SemiSim M16.1 closed-form.
 
 - **Lombardi, C., Manzini, S., Saporito, A., and Vanzi, M. (1988).**
   "A physically based mobility model for numerical simulation of
@@ -225,7 +225,7 @@ where possible.
 - **Slotboom, J. W., and de Graaff, H. C. (1976).** "Measurements of
   bandgap narrowing in Si bipolar transistors." *Solid-State
   Electron.* 19, 857-862. Heavy-doping bandgap narrowing; not yet in
-  kronos-semi.
+  SemiSim.
 
 ### AC small-signal analysis
 

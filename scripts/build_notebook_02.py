@@ -10,7 +10,7 @@ import nbformat as nbf
 nb = nbf.v4.new_notebook()
 cells = []
 
-cells.append(nbf.v4.new_markdown_cell(r"""# kronos-semi · Notebook 02: Forward and Reverse Bias on a 1D pn Junction
+cells.append(nbf.v4.new_markdown_cell(r"""# SemiSim · Notebook 02: Forward and Reverse Bias on a 1D pn Junction
 
 Couples Poisson to drift-diffusion continuity equations in Slotboom $(\psi, \Phi_n, \Phi_p)$ variables, sweeps the anode bias, and compares the simulated $J(V)$ curve to analytical references on both branches:
 
@@ -21,7 +21,7 @@ Both sweeps use adaptive bias continuation (Newton step halving on divergence, r
 
 ## Notebook set
 
-This is the second of four Colab walkthroughs that exercise the [end-of-M7 capability matrix](https://github.com/rwalkerlewis/kronos-semi#status) from the README:
+This is the second of four Colab walkthroughs that exercise the [end-of-M7 capability matrix](https://github.com/rwalkerlewis/SemiSim#status) from the README:
 
 | Notebook | Covers |
 |----------|--------|
@@ -32,7 +32,7 @@ This is the second of four Colab walkthroughs that exercise the [end-of-M7 capab
 
 **What this notebook does:**
 1. Installs `dolfinx` on Colab via [FEM on Colab](https://fem-on-colab.github.io/) (one wget, ~30 s)
-2. Clones the [kronos-semi](https://github.com/rwalkerlewis/kronos-semi) repo
+2. Clones the [SemiSim](https://github.com/rwalkerlewis/SemiSim) repo
 3. Loads `benchmarks/pn_1d_bias/pn_junction_bias.json` and runs the forward sweep
 4. Plots $|J(V)|$ against Shockley diffusion and SNS references on a log-linear axis
 5. Loads `benchmarks/pn_1d_bias_reverse/pn_junction_bias_reverse.json` and runs the reverse sweep
@@ -64,10 +64,10 @@ cells.append(nbf.v4.new_markdown_cell(r"""## 2. Clone the repo and install the p
 Same pattern as Notebook 01 — `pip install -e` so any source edits you make persist in the Colab session."""))
 
 cells.append(nbf.v4.new_code_cell(r"""import os
-if not os.path.exists('kronos-semi'):
-    !git clone -q https://github.com/rwalkerlewis/kronos-semi.git
+if not os.path.exists('SemiSim'):
+    !git clone -q https://github.com/rwalkerlewis/SemiSim.git
 
-%cd kronos-semi
+%cd SemiSim
 !pip install -q -e .
 print("Package installed.")
 """))
@@ -145,7 +145,7 @@ J_sns, _Jd, _Jr, _ = sns_total_reference(
 fig, ax = plt.subplots(figsize=(7, 4.5))
 fwd_mask = V_fwd > 0.05
 ax.semilogy(V_fwd[fwd_mask], J_fwd[fwd_mask], "o-", color="C0",
-            lw=2, ms=5, label="simulation (kronos-semi)")
+            lw=2, ms=5, label="simulation (SemiSim)")
 ax.semilogy(V_fwd[fwd_mask], np.maximum(J_shockley[fwd_mask], 1e-30),
             "k--", lw=1.5, label="Shockley diffusion $J_s(e^{V/V_t}-1)$")
 ax.semilogy(V_fwd[fwd_mask], np.maximum(J_sns[fwd_mask], 1e-30),
@@ -214,7 +214,7 @@ J_total_ref = np.abs(J_gen_net) + J_s
 fig, ax = plt.subplots(figsize=(7, 4.5))
 rev_mask = V_rev < -0.05
 ax.semilogy(V_rev[rev_mask], np.maximum(J_rev[rev_mask], 1e-30), "o-",
-            color="C3", lw=2, ms=5, label="simulation (kronos-semi)")
+            color="C3", lw=2, ms=5, label="simulation (SemiSim)")
 ax.semilogy(V_rev[rev_mask], np.maximum(J_total_ref[rev_mask], 1e-30), "r:",
             lw=2, label=r"$J_s + |J_{\mathrm{gen,net}}(V)|$")
 ax.axhline(J_s, color="k", ls="--", lw=1.2, label=f"$J_s$ = {J_s:.2e} A/m$^2$")
@@ -252,7 +252,7 @@ cells.append(nbf.v4.new_markdown_cell(r"""## Summary
 
 **Next up.** Notebook 03 moves from 1D pn to a 2D MOS capacitor, adds a gate contact with metal-semiconductor work-function difference $\phi_{ms}$, and runs a C-V sweep against the depletion-approximation theory curve.
 
-See [the repo](https://github.com/rwalkerlewis/kronos-semi) and its [capability matrix](https://github.com/rwalkerlewis/kronos-semi#status) for the full scope."""))
+See [the repo](https://github.com/rwalkerlewis/SemiSim) and its [capability matrix](https://github.com/rwalkerlewis/SemiSim#status) for the full scope."""))
 
 nb.cells = cells
 

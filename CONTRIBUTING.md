@@ -21,11 +21,11 @@ for what is done, what is next, and which design decisions are locked.
 ## Development setup
 
 ```bash
-git clone https://github.com/rwalkerlewis/kronos-semi.git
-cd kronos-semi
+git clone https://github.com/rwalkerlewis/SemiSim.git
+cd SemiSim
 # Option A: conda for dolfinx (full FEM capability)
-conda create -n kronos-semi -c conda-forge python=3.12 fenics-dolfinx mpich
-conda activate kronos-semi
+conda create -n SemiSim -c conda-forge python=3.12 fenics-dolfinx mpich
+conda activate SemiSim
 pip install -e ".[dev]"
 
 # Option B: pure-Python only (no FEM, just schema/materials/scaling/doping)

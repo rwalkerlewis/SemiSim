@@ -19,7 +19,7 @@ See also:
 - `moscap_axisym.geo`: gmsh geometry for the meridian half-plane
   `(r, z) in [0, R] x [-T_Si, T_ox]`. Builds a graded mesh with fine
   triangles at the Si/SiO2 interface and the gate edge `r = R_g`.
-- `moscap_axisym.json`: kronos-semi input config (schema 1.3.0,
+- `moscap_axisym.json`: SemiSim input config (schema 1.3.0,
   `coordinate_system: "axisymmetric"`).
 - `reference_cv.csv`: analytical reference C-V from Hu chapter 5
   (closed form), used by the regression test as the ground truth.

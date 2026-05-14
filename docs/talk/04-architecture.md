@@ -9,7 +9,7 @@
 
 **[16:00]**
 
-kronos-semi is organized as five layers. Higher layers depend on lower
+SemiSim is organized as five layers. Higher layers depend on lower
 ones; lower layers never import from higher ones. The pure-Python core
 (Layer 3) has an additional constraint: it must not import dolfinx. That
 lets schema, material, and doping logic run in any Python environment
@@ -85,8 +85,8 @@ annotations on every field so a UI can auto-generate forms.
 
 **[20:00]**
 
-Beyond the Python API, kronos-semi ships an HTTP server
-(`kronos_server/`) powered by FastAPI. You `POST /solve` with a JSON body
+Beyond the Python API, SemiSim ships an HTTP server
+(`semisim_server/`) powered by FastAPI. You `POST /solve` with a JSON body
 and get back a `run_id`. You poll `GET /runs/{id}` for status and fetch
 the manifest, IV CSVs, and field files when complete. Progress streams
 over a WebSocket.

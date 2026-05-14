@@ -1,8 +1,8 @@
 ## Context
 
-You are working in `kronos-semi` at `v0.24.0` (post-M17, package
+You are working in `SemiSim` at `v0.24.0` (post-M17, package
 version `0.24.0`, schema `2.8.0`). The repo is at
-`https://github.com/rwalkerlewis/kronos-semi`; `main` is at
+`https://github.com/rwalkerlewis/SemiSim`; `main` is at
 `ed6719b` (`fix(ci): unblock main by reading cathode J in
 schottky verifier; tag two known-broken examples allow-failure`).
 
@@ -679,7 +679,7 @@ that watches the dt trajectory shape.
 - [ ] Slotboom primary unknowns retained; no SUPG / streamline
       diffusion (ADR 0004).
 - [ ] `make_scaling_from_config` still on every solve path.
-- [ ] No PETSc / UFL types leak into `kronos_server` public API.
+- [ ] No PETSc / UFL types leak into `semisim_server` public API.
 - [ ] Schema bumped per minor (2.8.0 to 2.9.0); v2.0.0 through
       v2.8.0 inputs still validate.
 - [ ] MMS rate gate L2 >= 1.99 / H1 >= 0.99 active for Variants A

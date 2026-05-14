@@ -8,7 +8,7 @@ with any other milestone work.
 
 ---
 
-You are working in `kronos-semi` at v0.16.0 (post-M14.3). Your
+You are working in `SemiSim` at v0.16.0 (post-M14.3). Your
 assignment is **M16.1: Caughey-Thomas field-dependent mobility**, the
 first physics-completeness slice of the M16 umbrella.
 
@@ -305,7 +305,7 @@ verifier passing.
 - [ ] Slotboom primary unknowns retained; no SUPG / streamline
       diffusion (ADR 0004).
 - [ ] `make_scaling_from_config` still on every solve path.
-- [ ] No PETSc / UFL types leak into `kronos_server` public API.
+- [ ] No PETSc / UFL types leak into `semisim_server` public API.
 - [ ] Schema bumped per minor (2.0.0 to 2.1.0); v2.0.0 inputs still
       validate.
 - [ ] MMS rate gate L2 >= 1.99 and H1 >= 0.99 active in

@@ -64,7 +64,7 @@ $$
 The step is accepted as soon as $\|F(\mathbf{u}^{(k+1)})\|$ is reduced
 by a sufficient fraction (the **Armijo condition** with a default
 factor $\sim 10^{-4}$). PETSc's `snes_linesearch_type bt` implements
-this; kronos-semi uses it as the default
+this; SemiSim uses it as the default
 ([`semi/solver.py:21`](../../semi/solver.py)).
 
 Line search rescues moderate overshoots but not all failure modes. If

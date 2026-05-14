@@ -44,7 +44,7 @@ $O(N)$ for the original $A$); the time cost is $O(N^2)$. Beyond
 
 **MUMPS** (Multifrontal Massively Parallel sparse direct Solver) is a
 mature multi-frontal sparse LU library. The dolfinx-PETSc default is
-MUMPS-LU; kronos-semi inherits this:
+MUMPS-LU; SemiSim inherits this:
 
 ```python
 DEFAULT_PETSC_OPTIONS = {
@@ -133,7 +133,7 @@ choice to keep the verification truth on a single, well-understood path.
 
 ### `GET /capabilities` endpoint
 
-The HTTP server ([`kronos_server/routes/health.py`](../../kronos_server/routes/health.py))
+The HTTP server ([`semisim_server/routes/health.py`](../../semisim_server/routes/health.py))
 exposes `/capabilities` returning `{"backends": [...], "device": ...,
 "compute": {...}}`. The UI uses this to gate the backend dropdown:
 greyed-out if `gpu-amgx` is not available on this engine build,
@@ -184,10 +184,10 @@ Output match: max-norm relative difference $\|\psi_\mathrm{gpu} - \psi_\mathrm{c
 | Backend probe | `semi/compute.py` (M15) |
 | GPU AMGX options | (per backend dict in `semi/compute.py::backend_settings_from_cfg`) |
 | `KSP iters` and `linear_solve_wall_s` | `semi/solver.py:230-247` |
-| `GET /capabilities` | `kronos_server/routes/health.py` |
+| `GET /capabilities` | `semisim_server/routes/health.py` |
 | Schema fields `solver.backend, solver.compute` | `schemas/input.v2.json` |
 | Manifest 1.1.0 KSP fields | `schemas/manifest.v1.json` |
-| `KRONOS_BACKEND` env override | `semi/compute.py` |
+| `SEMISIM_BACKEND` env override | `semi/compute.py` |
 
 ## Existing-docs cross-reference
 

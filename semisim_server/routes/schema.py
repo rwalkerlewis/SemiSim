@@ -83,7 +83,7 @@ def get_capabilities() -> CapabilitiesResponse:
     )
 
     return CapabilitiesResponse(
-        engine=CapabilitiesEngine(name="kronos-semi", version=version),
+        engine=CapabilitiesEngine(name="SemiSim", version=version),
         schema_version=schema_version,
         solver_types=[
             "equilibrium",

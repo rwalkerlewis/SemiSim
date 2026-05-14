@@ -2,7 +2,7 @@
 
 This inventory maps every physical concept, equation, parameter, boundary
 condition, time integrator, linearization, or numerical method that
-appears anywhere in the kronos-semi repository (v0.16.0 / schema v2.0.0
+appears anywhere in the SemiSim repository (v0.16.0 / schema v2.0.0
 / M16.1 shipped) to:
 
 1. **Code location** — file path with line range or function name
@@ -106,7 +106,7 @@ itself, see `01_classical_em_and_poisson.md` through
 | Oxide capacitance $C_{ox}$ | `semi/cv.py:126` | – | `docs/theory/moscap_cv.md` | Parallel-plate derivation |
 | Maximum depletion $W_\mathrm{dmax}$ | `semi/cv.py:131` | – | `docs/theory/moscap_cv.md` | Pinned at $\psi_s = 2\phi_B$ |
 | LF / HF C–V | `semi/cv.py:159-360` | – | `docs/theory/moscap_cv.md` | Pedagogical contrast |
-| BC-convention shift $V_{fb} = \phi_{ms} - \phi_F$ | `docs/PHYSICS.md` §6.3 | – | `docs/PHYSICS.md` §6.3 | Why kronos differs from textbook |
+| BC-convention shift $V_{fb} = \phi_{ms} - \phi_F$ | `docs/PHYSICS.md` §6.3 | – | `docs/PHYSICS.md` §6.3 | Why SemiSim differs from textbook |
 
 ## J. MOSFET physics (Ch. 10)
 
@@ -208,7 +208,7 @@ itself, see `01_classical_em_and_poisson.md` through
 | AMGX preconditioner | `semi/compute.py` (M15) | `solver.backend: "gpu-amgx"` | `docs/gpu.md` | Algebraic multigrid sketch |
 | hypre BoomerAMG | `semi/compute.py` | `solver.backend: "gpu-hypre"` | `docs/gpu.md` | Parallel AMG sketch |
 | `auto` fallback | `semi/compute.py` | `solver.backend: "auto"` | `docs/gpu.md` | Capability negotiation |
-| `GET /capabilities` | `kronos_server/routes/health.py` | – | `docs/gpu.md` | UI integration |
+| `GET /capabilities` | `semisim_server/routes/health.py` | – | `docs/gpu.md` | UI integration |
 | Bit-identity guarantee | `docs/gpu.md` | – | `docs/gpu.md` | Why CPU is reference |
 
 ## T. Material parameter database (Ch. 20)

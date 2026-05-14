@@ -31,7 +31,7 @@ the full annotated source of truth is the JSON file.
   inputs continue to validate (additive minors).
 
 Schemas are published to
-`https://rwalkerlewis.github.io/kronos-semi/schemas/` on every release
+`https://rwalkerlewis.github.io/SemiSim/schemas/` on every release
 tag; see [`.github/workflows/publish-schemas.yml`](../../.github/workflows/publish-schemas.yml).
 
 ### v1 -> v2 migration

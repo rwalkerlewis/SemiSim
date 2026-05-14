@@ -1,5 +1,5 @@
 """
-Result artifact writer for kronos-semi simulations.
+Result artifact writer for SemiSim simulations.
 
 Output layout under out_dir/<run_id>/:
     manifest.json     schema-versioned metadata
@@ -108,7 +108,7 @@ def write_artifact(
     from .. import __version__
 
     engine = {
-        "name": "kronos-semi",
+        "name": "SemiSim",
         "version": __version__,
         "commit": _git_commit(),
     }
@@ -487,7 +487,7 @@ def write_transient_artifact(
     manifest = {
         "schema_version": _SCHEMA_VERSION,
         "engine": {
-            "name": "kronos-semi",
+            "name": "SemiSim",
             "version": __version__,
             "commit": _git_commit(),
         },
@@ -575,7 +575,7 @@ def write_ac_sweep_artifact(
     manifest = {
         "schema_version": _SCHEMA_VERSION,
         "engine": {
-            "name": "kronos-semi",
+            "name": "SemiSim",
             "version": __version__,
             "commit": _git_commit(),
         },

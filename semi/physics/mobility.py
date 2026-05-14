@@ -298,7 +298,7 @@ def caughey_thomas_vsat_for_form(vsat_cm_per_s: float, sc) -> float:
     Convert a saturation velocity in cm/s to the dimensionless form
     consumed by `caughey_thomas_mu` against `F_par = sqrt(grad(phi_hat)
     . grad(phi_hat))` in 1/m (the gradient of the scaled quasi-Fermi
-    potential under the kronos-semi mesh-in-meters convention).
+    potential under the SemiSim mesh-in-meters convention).
 
     Derivation (cite docs/PHYSICS.md section 2.5):
         physical field    F = V_t * grad(phi_hat)          [V/m]

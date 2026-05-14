@@ -1,7 +1,7 @@
 # Glossary of Terms and Acronyms
 
 This glossary covers every technical term and acronym used across the
-kronos-semi talk slides (§1–§8). Entries are grouped by category for
+SemiSim talk slides (§1–§8). Entries are grouped by category for
 easy review at the podium; an alphabetical quick-reference index
 follows at the end.
 
@@ -94,7 +94,7 @@ unknowns in the drift-diffusion system.
 **Fermi-Dirac statistics**
 The exact quantum-mechanical distribution function for electrons.
 Required when the semiconductor is degenerate (heavily doped,
-> ~10¹⁹ cm⁻³ in silicon). Planned in kronos-semi M16.4.
+> ~10¹⁹ cm⁻³ in silicon). Planned in SemiSim M16.4.
 
 **Fermi level (E_F)**
 The chemical potential of electrons. At thermal equilibrium, a single
@@ -103,7 +103,7 @@ Fermi levels Φ_n, Φ_p for electrons and holes.
 
 **Generation-recombination (G-R)**
 Processes that create (generation) or annihilate (recombination)
-electron-hole pairs. Principal mechanism in kronos-semi: SRH.
+electron-hole pairs. Principal mechanism in SemiSim: SRH.
 
 **Hole**
 A missing electron in the valence band, behaving as a positive charge
@@ -134,7 +134,7 @@ Silicon doped with donor atoms. Majority carriers are electrons.
 
 **Ohmic contact**
 A metal-semiconductor contact that maintains charge neutrality and
-thermal equilibrium at the contact surface. Implemented in kronos-semi
+thermal equilibrium at the contact surface. Implemented in SemiSim
 as Dirichlet BCs on ψ, Φ_n, and Φ_p equal to the applied voltage plus
 the built-in offset.
 
@@ -159,7 +159,7 @@ conditions. Electrons follow Φ_n; holes follow Φ_p. The Slotboom
 transformation uses these as primary unknowns.
 
 **Recombination (R)**
-Net rate at which electron-hole pairs annihilate. In kronos-semi:
+Net rate at which electron-hole pairs annihilate. In SemiSim:
 SRH recombination through mid-gap traps. R > 0 near forward-biased
 junctions; R < 0 (generation) in reverse-biased depletion regions.
 
@@ -176,7 +176,7 @@ charge and depleted of mobile carriers.
 **Thermal voltage (V_t)**
 V_t = k_B T / q ≈ 25.85 mV at 300 K. The natural voltage scale for
 semiconductor physics. Used as the potential normalization unit in
-kronos-semi's nondimensionalization.
+SemiSim's nondimensionalization.
 
 ---
 
@@ -192,7 +192,7 @@ Implemented in `semi/continuation.py`.
 **BDF (Backward Differentiation Formula)**
 A family of implicit multistep methods for time integration of ODEs
 and DAEs. BDF1 = backward Euler; BDF2 uses the two most recent time
-levels. Unconditionally A-stable up to order 2. Used in kronos-semi
+levels. Unconditionally A-stable up to order 2. Used in SemiSim
 for transient drift-diffusion (M13).
 
 **BDF1 (Backward Euler)**
@@ -214,12 +214,12 @@ See *adaptive continuation*.
 **Convergence order (rate)**
 The exponent p such that ‖error‖ ~ h^p as mesh spacing h → 0. Second-
 order (p = 2) in L² norm is the theoretical rate for P1 Lagrange FEM
-on smooth problems. Verified by the MMS suite in kronos-semi.
+on smooth problems. Verified by the MMS suite in SemiSim.
 
 **Direct solver**
 A linear-algebra algorithm that computes an exact factorization of the
 system matrix (e.g., LU decomposition). MUMPS is the direct solver in
-kronos-semi. Exact but memory-intensive for large 3D problems.
+SemiSim. Exact but memory-intensive for large 3D problems.
 
 **DOF (degree of freedom)**
 A scalar unknown in the discretized PDE system. For P1 elements, one
@@ -228,7 +228,7 @@ DOF per mesh vertex per field. Total DOFs ≈ N_vertices × N_fields.
 **FEM (Finite Element Method)**
 A numerical PDE discretization based on a weak (variational) form.
 The domain is divided into elements; the solution is approximated by
-piecewise polynomial basis functions. kronos-semi uses FEniCSx/dolfinx
+piecewise polynomial basis functions. SemiSim uses FEniCSx/dolfinx
 as its FEM backend.
 
 **Galerkin FEM**
@@ -273,7 +273,7 @@ hypre BoomerAMG (GPU path).
 
 **MUMPS**
 MUltifrontal Massively Parallel sparse direct Solver. The default
-linear solver backend in kronos-semi for CPU solves. Exact LU
+linear solver backend in SemiSim for CPU solves. Exact LU
 factorization; robust on ill-conditioned systems.
 
 **Newton's method (Newton-Raphson)**
@@ -283,7 +283,7 @@ convergence near the root; requires a good initial guess.
 
 **Nondimensionalization**
 The process of scaling physical variables so that they are O(1) in
-the computation. In kronos-semi: potentials scaled by V_t, densities
+the computation. In SemiSim: potentials scaled by V_t, densities
 by C_0 (peak doping), spatial coordinates kept in meters. Reduces
 Jacobian condition number from ~10³⁰ to manageable levels.
 
@@ -296,7 +296,7 @@ high-Péclet stiffness in the DD continuity equations.
 **PETSc**
 Portable, Extensible Toolkit for Scientific Computation. A library of
 data structures and solvers for large-scale linear and nonlinear
-algebra. kronos-semi uses PETSc via petsc4py for Newton (SNES),
+algebra. SemiSim uses PETSc via petsc4py for Newton (SNES),
 linear solvers (KSP), and GPU backends.
 
 **P1 Lagrange elements**
@@ -307,7 +307,7 @@ Poisson and drift-diffusion in FEniCSx.
 **Preconditioner**
 A matrix M ≈ A^{−1} used to improve the convergence of iterative
 linear solvers. AMGX and hypre BoomerAMG are AMG preconditioners used
-in the kronos-semi GPU path.
+in the SemiSim GPU path.
 
 **Residual**
 The vector F(u) measuring how far the current solution u is from
@@ -318,7 +318,7 @@ satisfying the PDE discretization F(u) = 0. Newton converges when
 A finite-volume edge-based discretization for the drift-diffusion
 current that is exact for exponential profiles in 1D. Guarantees
 positive carrier densities. Used in COMSOL and many TCAD codes.
-kronos-semi uses the Slotboom transformation instead, which achieves
+SemiSim uses the Slotboom transformation instead, which achieves
 equivalent stability on FEM meshes with higher-order convergence.
 
 **Singular perturbation**
@@ -333,13 +333,13 @@ drift-diffusion currents as pure gradients, making the weak form
 coercive and Galerkin-stable without upwinding. Locked in ADR 0004.
 
 **SNES (Scalable Nonlinear Equations Solver)**
-The PETSc component for Newton-type nonlinear solvers. kronos-semi
+The PETSc component for Newton-type nonlinear solvers. SemiSim
 uses SNES for the outer Newton loop and KSP for the inner linear
 solves.
 
 **SUPG (Streamline Upwind Petrov-Galerkin)**
 A stabilization technique for convection-dominated PDEs that adds
-artificial diffusion along streamlines. Not used in kronos-semi —
+artificial diffusion along streamlines. Not used in SemiSim —
 the Slotboom transformation eliminates the need for stabilization.
 
 **UFL (Unified Form Language)**
@@ -360,17 +360,17 @@ integrals.
 
 **BJT (Bipolar Junction Transistor)**
 A three-terminal device using two pn junctions. Not modeled in
-v0.16 kronos-semi.
+v0.16 SemiSim.
 
 **Contact**
 A boundary of the device where an electrical terminal is attached.
-In kronos-semi: ohmic contacts (Dirichlet BC on all fields) or
+In SemiSim: ohmic contacts (Dirichlet BC on all fields) or
 gate contacts (Dirichlet on ψ only).
 
 **C-V (Capacitance-Voltage)**
 A characterization technique that measures the small-signal
 capacitance of a device as a function of DC bias. Key measurement for
-MOS capacitors. kronos-semi's AC solver reproduces LF and HF C-V
+MOS capacitors. SemiSim's AC solver reproduces LF and HF C-V
 curves (M14.2).
 
 **HEMT (High Electron Mobility Transistor)**
@@ -393,7 +393,7 @@ accumulation, depletion, and inversion regimes.
 
 **MOSFET (Metal-Oxide-Semiconductor Field-Effect Transistor)**
 A four-terminal transistor controlled by the gate voltage. The
-dominant device in modern CMOS technology. Modeled in kronos-semi as
+dominant device in modern CMOS technology. Modeled in SemiSim as
 a 2D multi-region structure.
 
 **n+ region**
@@ -402,16 +402,16 @@ drain extensions of a MOSFET.
 
 **Oxide (SiO₂)**
 Silicon dioxide, the gate insulator in silicon MOSFETs. ε_r ≈ 3.9,
-E_g ≈ 9 eV. Modeled as a passive dielectric region in kronos-semi.
+E_g ≈ 9 eV. Modeled as a passive dielectric region in SemiSim.
 
 **pn diode**
 A two-terminal device with a pn junction. The simplest device in
-kronos-semi; used for bias-sweep and IV verification.
+SemiSim; used for bias-sweep and IV verification.
 
 **TCAD (Technology Computer-Aided Design)**
 The field of simulation tools used to model semiconductor fabrication
 processes and device behavior. Sentaurus, Silvaco, COMSOL Semiconductor
-Module are commercial TCAD tools; kronos-semi is an open-source TCAD
+Module are commercial TCAD tools; SemiSim is an open-source TCAD
 solver.
 
 **Threshold voltage (V_T)**
@@ -430,38 +430,38 @@ superseded by a new ADR, not edited. ADRs live in `docs/adr/`.
 
 **AMGX**
 NVIDIA's Algebraic Multigrid solver library for GPU-accelerated sparse
-linear systems. One of the GPU linear-solver backends in kronos-semi.
+linear systems. One of the GPU linear-solver backends in SemiSim.
 Used via PETSc-CUDA.
 
 **API (Application Programming Interface)**
-A defined interface for programmatic interaction. kronos-semi exposes
+A defined interface for programmatic interaction. SemiSim exposes
 a Python API (direct function calls) and an HTTP API (REST endpoints).
 
 **BDF (see Numerical Methods section)**
 
 **CI (Continuous Integration)**
 Automated build, test, and verification runs triggered on every git
-push. kronos-semi's CI runs on GitHub Actions and enforces the 95%
+push. SemiSim's CI runs on GitHub Actions and enforces the 95%
 coverage gate and the full V&V suite.
 
 **CUDA**
 NVIDIA's parallel computing platform and programming model for GPU
-computation. PETSc-CUDA enables GPU linear solves in kronos-semi.
+computation. PETSc-CUDA enables GPU linear solves in SemiSim.
 
 **DOF (see Numerical Methods section)**
 
 **dolfinx**
 The computational backend of FEniCSx. Provides the mesh, function
-space, assembly, and linear algebra abstractions used in kronos-semi.
+space, assembly, and linear algebra abstractions used in SemiSim.
 Layer 4 of the five-layer architecture.
 
 **FEniCSx**
 An open-source finite-element computing platform. Consists of UFL
 (form language), FFCx (form compiler), basix (element library), and
-dolfinx (computational backend). kronos-semi is built on FEniCSx 0.10.
+dolfinx (computational backend). SemiSim is built on FEniCSx 0.10.
 
 **GPU (Graphics Processing Unit)**
-A massively parallel processor. Used in kronos-semi for accelerated
+A massively parallel processor. Used in SemiSim for accelerated
 sparse linear solves (M15). Accessed via PETSc-CUDA or PETSc-HIP.
 
 **HIP**
@@ -469,20 +469,20 @@ AMD's GPU computing framework (analogous to CUDA). PETSc-HIP enables
 GPU linear solves on AMD hardware.
 
 **HTTP (Hypertext Transfer Protocol)**
-The protocol used by the kronos-semi HTTP API (`kronos_server/`).
+The protocol used by the SemiSim HTTP API (`semisim_server/`).
 REST endpoints: `POST /solve`, `GET /runs/{id}`, `GET /capabilities`.
 
 **hypre**
 A library of parallel high-performance preconditioners, including
 BoomerAMG (algebraic multigrid). Used as the GPU linear-solver backend
-in kronos-semi when PETSc-HIP/CUDA is available.
+in SemiSim when PETSc-HIP/CUDA is available.
 
 **JSON (JavaScript Object Notation)**
-The only supported input format for kronos-semi. Text-based, human-
+The only supported input format for SemiSim. Text-based, human-
 readable, schema-validatable. Locked as the input contract in ADR 0001.
 
 **JSON Schema**
-A vocabulary for describing and validating JSON documents. kronos-semi
+A vocabulary for describing and validating JSON documents. SemiSim
 uses JSON Schema Draft-07. The strict schema (`additionalProperties:
 false`) rejects unknown fields at the boundary.
 
@@ -498,7 +498,7 @@ royalties.
 
 **MPI (Message Passing Interface)**
 A standard for distributed-memory parallel computing. FEniCSx is
-MPI-parallel. MPI-parallel runs planned in kronos-semi M19.1.
+MPI-parallel. MPI-parallel runs planned in SemiSim M19.1.
 
 **MUMPS (see Numerical Methods section)**
 
@@ -506,16 +506,16 @@ MPI-parallel. MPI-parallel runs planned in kronos-semi M19.1.
 
 **REST (Representational State Transfer)**
 An architectural style for web APIs using standard HTTP verbs (GET,
-POST). The kronos-semi HTTP API follows REST conventions.
+POST). The SemiSim HTTP API follows REST conventions.
 
 **run_id**
-A UUID assigned to each simulation run by the kronos-semi server.
+A UUID assigned to each simulation run by the SemiSim server.
 Results are stored under `runs/<run_id>/`. Enables parallel runs and
 unambiguous artifact tracking.
 
 **Schema versioning**
 The practice of giving the JSON input schema an explicit version
-string. kronos-semi v2.0.0 schema is strict; the v1.x legacy schema
+string. SemiSim v2.0.0 schema is strict; the v1.x legacy schema
 is accepted with a deprecation warning.
 
 **UFL (see Numerical Methods section)**
@@ -525,16 +525,16 @@ is accepted with a deprecation warning.
   convergence rates, conservation checks)
 - **Validation**: Are we solving the right equations? (comparison to
   analytical formulas, experimental data)
-Both are required and automated in kronos-semi's test suite.
+Both are required and automated in SemiSim's test suite.
 
 **WebSocket**
 A full-duplex communication protocol over a single TCP connection.
-Used by the kronos-semi HTTP server for streaming solve progress
+Used by the SemiSim HTTP server for streaming solve progress
 updates to a client UI.
 
 **XDMF (eXtensible Data Model and Format)**
 A lightweight XML + HDF5 format for scientific mesh and field data.
-kronos-semi writes all field output (potential, carrier densities) in
+SemiSim writes all field output (potential, carrier densities) in
 XDMF. Readable by ParaView, VisIt, and any HDF5 tool.
 
 ---

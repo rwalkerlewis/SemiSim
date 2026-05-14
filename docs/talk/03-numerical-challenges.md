@@ -106,7 +106,7 @@ initial guess. If a step fails to converge, halve it and retry. If three
 consecutive steps converge in very few Newton iterations, grow the step.
 This is adaptive arc-length homotopy.
 
-In kronos-semi this logic lives in `semi/continuation.py` as
+In SemiSim this logic lives in `semi/continuation.py` as
 `AdaptiveStepController`. The bias sweep runner in
 `semi/runners/bias_sweep.py` drives the controller, records an IV pair
 at each successful step, and stops at the target voltage.

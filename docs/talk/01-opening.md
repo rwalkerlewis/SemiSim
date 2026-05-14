@@ -26,16 +26,16 @@ pay license fees or work around the tools.
 - Commercial TCAD tools are expensive and opaque.
 - There is a gap for a transparent, extensible, JSON-driven alternative.
 
-**Transition:** Let me tell you what kronos-semi actually is, and then
+**Transition:** Let me tell you what SemiSim actually is, and then
 explain why building it requires solving three genuinely hard problems.
 
 ---
 
-## Slide 1.2 — What is kronos-semi?
+## Slide 1.2 — What is SemiSim?
 
 **[1:30]**
 
-kronos-semi is a finite-element semiconductor device simulator built on
+SemiSim is a finite-element semiconductor device simulator built on
 FEniCSx — the leading open-source FEM framework — and driven entirely by
 JSON input files. You describe your device: the geometry, the doping
 profile, the contacts, the physics options. The engine produces a

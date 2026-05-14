@@ -6,7 +6,7 @@ Paste-ready prompt for Claude in VS Code. Mirrors the convention of
 
 ---
 
-You are working in `kronos-semi` at v0.14.1 (or v0.14.2 once PR #65 lands).
+You are working in `SemiSim` at v0.14.1 (or v0.14.2 once PR #65 lands).
 Your assignment is **M15: GPU linear solver path**.
 
 This prompt does **not** restate the M15 deliverable, the acceptance tests,
@@ -199,9 +199,9 @@ not import dolfinx, cupy, pycuda, or any vendor SDK directly.
        is not in `available`.
      - `"gpu-hypre"` likewise.
      - `"auto"` prefers `gpu-amgx` over `gpu-hypre` over `cpu-mumps`.
-   - Honor `KRONOS_BACKEND` env var as the override default when
+   - Honor `SEMISIM_BACKEND` env var as the override default when
      `solver.backend == "auto"`.
-2. `kronos_server`: add `GET /capabilities` returning `device_info()`
+2. `semisim_server`: add `GET /capabilities` returning `device_info()`
    plus the engine version and the schema version. This closes the
    open `/capabilities` line item in `docs/IMPROVEMENT_GUIDE.md` §6.
 3. Pure-Python tests in `tests/test_compute_module.py`:
@@ -209,7 +209,7 @@ not import dolfinx, cupy, pycuda, or any vendor SDK directly.
    - Real probe for `available_backends()` so it adapts to whatever
      PETSc is in CI (CPU-only by default).
    - Round-trip a `device_info()` payload through the manifest schema.
-4. Server tests in `tests/test_kronos_server.py` for the new endpoint.
+4. Server tests in `tests/test_semisim_server.py` for the new endpoint.
 
 **Commit message:** `feat(compute): runtime backend probe; GET /capabilities endpoint`
 
@@ -340,7 +340,7 @@ build is approximately 30 minutes and will time out the free runner.
       (P5).
 - [ ] `make_scaling_from_config` still on every solve path (P /
       M1-locked).
-- [ ] No PETSc / UFL types leak into `kronos_server` public API (P6).
+- [ ] No PETSc / UFL types leak into `semisim_server` public API (P6).
 - [ ] Schema bumped per minor when fields are added; major-gate logic
       still passes (P4 / M11).
 - [ ] No new ADR introduced unless an invariant is broken; if so,

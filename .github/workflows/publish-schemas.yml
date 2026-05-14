@@ -4,7 +4,7 @@ name: Publish schemas
 # to the project's GitHub Pages site under /schemas/ on every release
 # tag. The published URL referenced from semi/schema.py and
 # docs/schema/reference.md is
-# https://rwalkerlewis.github.io/kronos-semi/schemas/.
+# https://rwalkerlewis.github.io/SemiSim/schemas/.
 
 on:
   release:
@@ -52,7 +52,7 @@ jobs:
           cp schemas/input.v2.json    _site/schemas/input/v2.json
           cp schemas/manifest.v1.json _site/schemas/manifest/v1.json
           VERSION=$(cat version.txt)
-          BASE="https://rwalkerlewis.github.io/kronos-semi/schemas"
+          BASE="https://rwalkerlewis.github.io/SemiSim/schemas"
           python - "$VERSION" "$BASE" <<'PY' > _site/schemas/index.json
           import json
           import sys
@@ -101,7 +101,7 @@ jobs:
 
             ### Published schemas (v${{ needs.build.outputs.version }})
 
-            - Input schema v1: https://rwalkerlewis.github.io/kronos-semi/schemas/input/v1.json
-            - Input schema v2: https://rwalkerlewis.github.io/kronos-semi/schemas/input/v2.json
-            - Manifest schema v1: https://rwalkerlewis.github.io/kronos-semi/schemas/manifest/v1.json
-            - Index: https://rwalkerlewis.github.io/kronos-semi/schemas/index.json
+            - Input schema v1: https://rwalkerlewis.github.io/SemiSim/schemas/input/v1.json
+            - Input schema v2: https://rwalkerlewis.github.io/SemiSim/schemas/input/v2.json
+            - Manifest schema v1: https://rwalkerlewis.github.io/SemiSim/schemas/manifest/v1.json
+            - Index: https://rwalkerlewis.github.io/SemiSim/schemas/index.json

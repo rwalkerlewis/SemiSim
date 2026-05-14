@@ -762,7 +762,7 @@ MOSFET capstone).
 - `semi/compute.py` runtime probe: `available_backends()`,
   `device_info()`, `resolve_backend()`,
   `petsc_options_for_backend()`, `backend_settings_from_cfg()`, plus
-  the `KRONOS_BACKEND` environment override.
+  the `SEMISIM_BACKEND` environment override.
 - Dynamic `GET /capabilities` endpoint reports the host's available
   backends and devices for UI gating.
 - Manifest 1.1.0 adds optional fields `backend_requested`,
@@ -794,7 +794,7 @@ MOSFET capstone).
 
 ### Notes
 - Five-layer architecture invariants preserved: no PETSc types in
-  the kronos_server public API, no GPU types in physics / bcs /
+  the semisim_server public API, no GPU types in physics / bcs /
   scaling.
 - Folds in the v0.14.2 administrative items deferred from PR #65.
 
@@ -918,7 +918,7 @@ MOSFET capstone).
   `schemas/manifest.v1.json`) into `_site/schemas/`, generates an
   `index.json` with the resolved URLs and the engine version from
   `pyproject.toml`, and deploys to the project's GitHub Pages site
-  at `https://rwalkerlewis.github.io/kronos-semi/schemas/`. The
+  at `https://rwalkerlewis.github.io/SemiSim/schemas/`. The
   post-M14.3 publish-URL claim in
   [`semi/schema.py`](semi/schema.py) L55-L57 and
   [`docs/schema/reference.md`](docs/schema/reference.md) L31-L33,
@@ -944,7 +944,7 @@ MOSFET capstone).
     `V_GS in [V_T + 0.2, V_T + 0.6] V` at `V_DS = 0.05 V` with a
     20% tolerance. V_T pulled from
     [`semi.cv.analytical_moscap_params`](semi/cv.py) and shifted
-    into the kronos-semi BC convention.
+    into the SemiSim BC convention.
   - **XDMF mesh ingest.** Wired the previously-NotImplementedError
     branch in [`semi/mesh.py`](semi/mesh.py) against
     `dolfinx.io.XDMFFile.read_mesh` / `read_meshtags`. Optional
@@ -983,7 +983,7 @@ MOSFET capstone).
   benchmarks (pn_1d_bias, etc.) continue to see the same
   `iv_row["V"]` and `iv_row["J"]` values; the new keys are
   additive.
-- **kronos_server `/schema` endpoint**: serves the v2 (strict)
+- **semisim_server `/schema` endpoint**: serves the v2 (strict)
   schema; the response payload grew `supported_majors: [1, 2]`.
 
 ### Notes
@@ -1373,12 +1373,12 @@ MOSFET capstone).
   `_load_schema()`. The public API (`SCHEMA`, `validate`, `load`,
   `dumps`, `SchemaError`) is unchanged; downstream imports need no
   edits.
-- `tests/test_kronos_server.py::test_schema` asserts the new
+- `tests/test_semisim_server.py::test_schema` asserts the new
   `{schema, version, supported_major}` shape rather than a bare
   schema.
 - `pyproject.toml` version bumped `0.10.0 -> 0.11.0`.
   `[tool.hatch.build.targets.wheel]` now `force-include`s `schemas/`
-  so `pip install kronos-semi` ships both `input.v1.json` and
+  so `pip install SemiSim` ships both `input.v1.json` and
   `manifest.v1.json` inside the wheel.
 - `semi/__init__.py` `__version__` bumped `0.10.0 -> 0.11.0`.
 
@@ -1406,7 +1406,7 @@ MOSFET capstone).
 ## [0.10.0] - M10: HTTP server
 
 ### Added
-- `kronos_server/` top-level package exposing the M9 engine over HTTP.
+- `semisim_server/` top-level package exposing the M9 engine over HTTP.
   FastAPI app factory (`build_app`), in-process `ProcessPoolExecutor`
   worker pool (`JobManager`), LocalFS storage backend, file-backed
   progress event stream (`progress.ndjson`), pydantic request/response
@@ -1421,7 +1421,7 @@ MOSFET capstone).
 - WebSocket endpoint: `WS /runs/{id}/stream` tails the progress file and
   emits `step_done` and `run_done` messages; closes with code 4404 on
   unknown run, 1000 on completion.
-- `kronos-server` console entry point (`pyproject.toml`) with env-var
+- `semisim-server` console entry point (`pyproject.toml`) with env-var
   driven host/port/workers/runs-dir/cors-origins configuration.
 - `server` service in `docker-compose.yml`, bound to port 8000.
 - `[project.optional-dependencies]` extra `server = [fastapi, uvicorn,
@@ -1429,7 +1429,7 @@ MOSFET capstone).
 - Optional `progress_callback=None` parameter on
   `semi/runners/{equilibrium,bias_sweep,mos_cv}.py`, called per bias
   step; this is the only permitted change to `semi/` in M10.
-- `tests/test_kronos_server.py` — 15 tests covering pure-Python and
+- `tests/test_semisim_server.py` — 15 tests covering pure-Python and
   FEM-backed paths: health/ready, capabilities, schema, materials,
   OpenAPI, input validation, 404 handling, CORS preflight, end-to-end
   solve+manifest match, field download, IV download, input download,
@@ -1440,7 +1440,7 @@ MOSFET capstone).
 - `Dockerfile`: `pip install -e ".[dev,server]"` so the baked image
   includes the server extra.
 - `pyproject.toml` `[tool.hatch.build.targets.wheel]` packages now
-  include `kronos_server`.
+  include `semisim_server`.
 - `PLAN.md`: M10 moved to completed work log; next task set to M11.
 
 ## [0.9.0] - M9: Result artifact writer

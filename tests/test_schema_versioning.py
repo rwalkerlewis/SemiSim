@@ -152,7 +152,7 @@ def test_read_manifest_rejects_major_mismatch(tmp_path):
 
     manifest = {
         "schema_version": "2.0.0",
-        "engine": {"name": "kronos-semi", "version": "0.11.0", "commit": "abc1234"},
+        "engine": {"name": "SemiSim", "version": "0.11.0", "commit": "abc1234"},
         "run_id": "2026-04-23T00-00-00Z_test_abc1234",
         "status": "completed",
         "wall_time_s": 0.0,

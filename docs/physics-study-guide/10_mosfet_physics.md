@@ -8,7 +8,7 @@
   above $V_T$ creates a conducting channel.
 - Derive the long-channel **Pao–Sah** linear-regime drain current
   $I_D/W = (\mu_n/L_{ch})\,C_{ox}\,(V_{GS} - V_T)\,V_{DS}$ and connect
-  it to the kronos-semi `mosfet_2d` verifier window
+  it to the SemiSim `mosfet_2d` verifier window
   $V_{GS} \in [V_T + 0.2, V_T + 0.6]\,\mathrm{V}$, $V_{DS} = 0.05\,\mathrm{V}$,
   20% tolerance.
 - Locate the Gaussian source/drain implants in the JSON schema and in
@@ -58,7 +58,7 @@ laterally to either side of the gate. The gate sits on a thin oxide
 layer (5–10 nm). Body, source, drain, and gate each have an ohmic /
 gate contact.
 
-In the kronos-semi `mosfet_2d` benchmark:
+In the SemiSim `mosfet_2d` benchmark:
 - Body: $N_a = 10^{17}\,\mathrm{cm^{-3}}$
 - Source/drain Gaussian implants: $N_D^\mathrm{peak} = 10^{20}\,\mathrm{cm^{-3}}$,
   $\sigma_x = 50\,\mathrm{nm}$, $\sigma_y = 25\,\mathrm{nm}$
@@ -125,9 +125,9 @@ captures this).
 
 $V_T$ in (10.2) is computed from the M6 MOSCAP analytic helper
 ([`semi/cv.py:62-156`](../../semi/cv.py)) and *shifted* into the
-kronos-semi BC convention by the body-Fermi-potential offset (Ch. 9).
-The shift is $V_T^\mathrm{kronos} = V_T^\mathrm{textbook} - \phi_F$ for
-a p-body, where $\phi_F = -|\phi_B| < 0$, so the kronos $V_T$ is *more
+SemiSim BC convention by the body-Fermi-potential offset (Ch. 9).
+The shift is $V_T^\mathrm{semisim} = V_T^\mathrm{textbook} - \phi_F$ for
+a p-body, where $\phi_F = -|\phi_B| < 0$, so the SemiSim $V_T$ is *more
 positive* than the textbook by $|\phi_B|$. See [`docs/PHYSICS.md` §6.6](../PHYSICS.md)
 for the full discussion; the verifier accounts for this when comparing
 to (10.2).
@@ -184,7 +184,7 @@ regions see net n-type after the Gaussian peak overcomes the background.
 - Inversion charge: (10.1).
 - Pao–Sah linear-regime $I_D$: (10.2).
 - Pao–Sah square-law saturation: (10.3).
-- $V_T$ in engine BC convention: $V_T^\mathrm{kronos} = V_T^\mathrm{textbook} - \phi_F$.
+- $V_T$ in engine BC convention: $V_T^\mathrm{semisim} = V_T^\mathrm{textbook} - \phi_F$.
 
 ## Worked numerical example
 
@@ -197,10 +197,10 @@ The `mosfet_2d` benchmark has:
   Numerator: $\sqrt{2.77\times 10^{-6}} = 1.66\times 10^{-3}\,\mathrm{C/m^2}$. Divide by $6.91\times 10^{-3}$:
   $0.241\,\mathrm{V}$.
 - $V_T^\mathrm{textbook} = 0 + 0.836 + 0.241 = 1.077\,\mathrm{V}$.
-- $V_T^\mathrm{kronos} = V_T^\mathrm{textbook} + |\phi_B| = 1.077 + 0.418 = 1.495\,\mathrm{V}$.
+- $V_T^\mathrm{semisim} = V_T^\mathrm{textbook} + |\phi_B| = 1.077 + 0.418 = 1.495\,\mathrm{V}$.
 
-Wait — the engine convention is $V_T^\mathrm{kronos} = V_T^\mathrm{textbook} - \phi_F$
-with $\phi_F = -|\phi_B|$, so $V_T^\mathrm{kronos} = 1.077 - (-0.418) = 1.495\,\mathrm{V}$.
+Wait — the engine convention is $V_T^\mathrm{semisim} = V_T^\mathrm{textbook} - \phi_F$
+with $\phi_F = -|\phi_B|$, so $V_T^\mathrm{semisim} = 1.077 - (-0.418) = 1.495\,\mathrm{V}$.
 
 Actually, going back to the M6 derivation in [`docs/PHYSICS.md` §6.3](../PHYSICS.md):
 the M6 device with $\phi_{ms} = 0$, $N_a = 10^{17}\,\mathrm{cm^{-3}}$ has
@@ -264,7 +264,7 @@ acceptance test, not the actual error).
    $I_D(V_{DS})$ around $V_{DS} = 0$. The verifier sweeps only positive
    $V_{DS}$; if you flip source/drain, the absolute value of $I_D$ stays
    the same.
-4. **$V_T$ depends on body bias.** kronos-semi with body grounded gives
+4. **$V_T$ depends on body bias.** SemiSim with body grounded gives
    the standard $V_T$. Apply $V_{BS} \neq 0$ and $V_T$ shifts by the
    body-effect coefficient $\gamma\sqrt{2|\phi_B| + |V_{BS}|} - \gamma\sqrt{2|\phi_B|}$,
    where $\gamma = \sqrt{2\varepsilon_s qN_a}/C_{ox}$. The shipped

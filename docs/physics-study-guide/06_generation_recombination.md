@@ -237,7 +237,7 @@ benchmark output.
 
 ## Common pitfalls
 
-1. **Trap energy convention.** kronos-semi measures $E_t$ from the
+1. **Trap energy convention.** SemiSim measures $E_t$ from the
    intrinsic Fermi level $E_i$, not from the conduction-band edge $E_c$.
    $E_t = 0$ means a mid-gap trap. Some references measure from $E_c$,
    in which case "mid-gap" is $E_t = E_g/2$. Mixing conventions

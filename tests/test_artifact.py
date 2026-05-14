@@ -49,7 +49,7 @@ def test_manifest_schema_round_trip():
     schema = json.loads((SCHEMAS_DIR / "manifest.v1.json").read_text())
     manifest = {
         "schema_version": "1.0.0",
-        "engine": {"name": "kronos-semi", "version": "0.9.0", "commit": "abc1234abc1234"},
+        "engine": {"name": "SemiSim", "version": "0.9.0", "commit": "abc1234abc1234"},
         "run_id": "2026-04-23T12-00-00Z_test_abc1234",
         "status": "completed",
         "wall_time_s": 1.5,
@@ -82,7 +82,7 @@ def test_manifest_schema_optional_sweeps():
     schema = json.loads((SCHEMAS_DIR / "manifest.v1.json").read_text())
     manifest = {
         "schema_version": "1.0.0",
-        "engine": {"name": "kronos-semi", "version": "0.9.0", "commit": "abc1234"},
+        "engine": {"name": "SemiSim", "version": "0.9.0", "commit": "abc1234"},
         "run_id": "2026-04-23T12-00-00Z_test_abc1234",
         "status": "completed",
         "wall_time_s": 5.0,

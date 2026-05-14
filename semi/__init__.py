@@ -1,5 +1,5 @@
 """
-kronos-semi: JSON-driven FEM device simulator on FEniCSx.
+SemiSim: JSON-driven FEM device simulator on FEniCSx.
 
 Public API:
     from semi import schema, run, materials, constants, scaling

@@ -1,5 +1,5 @@
 """
-Build the Colab notebook 01 that uses the kronos-semi package via git clone.
+Build the Colab notebook 01 that uses the SemiSim package via git clone.
 Equilibrium Poisson walkthrough on a 1D pn junction.
 """
 from pathlib import Path
@@ -9,13 +9,13 @@ import nbformat as nbf
 nb = nbf.v4.new_notebook()
 cells = []
 
-cells.append(nbf.v4.new_markdown_cell(r"""# kronos-semi · Notebook 01: Equilibrium Poisson on a 1D pn Junction
+cells.append(nbf.v4.new_markdown_cell(r"""# SemiSim · Notebook 01: Equilibrium Poisson on a 1D pn Junction
 
 Verification benchmark: symmetric 1D pn junction, Si, $N_A = N_D = 10^{17}$ cm⁻³, junction at 1 µm. Solves the nonlinear equilibrium Poisson equation (Boltzmann statistics) via PETSc SNES on a dolfinx 0.10 mesh, then compares to the analytical depletion approximation.
 
 ## Notebook set
 
-This is the first of four Colab walkthroughs that exercise the [end-of-M7 capability matrix](https://github.com/rwalkerlewis/kronos-semi#status) from the README:
+This is the first of four Colab walkthroughs that exercise the [end-of-M7 capability matrix](https://github.com/rwalkerlewis/SemiSim#status) from the README:
 
 | Notebook | Covers |
 |----------|--------|
@@ -26,7 +26,7 @@ This is the first of four Colab walkthroughs that exercise the [end-of-M7 capabi
 
 **What this notebook does:**
 1. Installs `dolfinx` on Colab via [FEM on Colab](https://fem-on-colab.github.io/) (one wget, ~30 s)
-2. Clones the [kronos-semi](https://github.com/rwalkerlewis/kronos-semi) repo
+2. Clones the [SemiSim](https://github.com/rwalkerlewis/SemiSim) repo
 3. Loads `benchmarks/pn_1d/pn_junction.json` via `schema.load`
 4. Runs `run.run(cfg)` which returns the scaled potential, carriers, and diagnostics
 5. Plots ψ(x), E(x), carrier densities; compares to analytical depletion approximation
@@ -55,10 +55,10 @@ cells.append(nbf.v4.new_markdown_cell(r"""## 2. Clone the repo and install the p
 This pulls in `semi/` (the actual simulator code) and makes it importable. Uses `pip install -e` so any edits you make persist in this session."""))
 
 cells.append(nbf.v4.new_code_cell(r"""import os
-if not os.path.exists('kronos-semi'):
-    !git clone -q https://github.com/rwalkerlewis/kronos-semi.git
+if not os.path.exists('SemiSim'):
+    !git clone -q https://github.com/rwalkerlewis/SemiSim.git
 
-%cd kronos-semi
+%cd SemiSim
 !pip install -q -e .
 print("Package installed.")
 """))
@@ -150,7 +150,7 @@ x_fine = np.linspace(0, 2e-6, 2000)
 psi_an = psi_analytical(x_fine, psi_p_phys, psi_n_phys)
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4))
-ax1.plot(x_phys_um, psi_phys, 'b-', lw=2, label='FEM (kronos-semi)')
+ax1.plot(x_phys_um, psi_phys, 'b-', lw=2, label='FEM (SemiSim)')
 ax1.plot(x_fine*1e6, psi_an, 'r--', lw=1.5, label='Depletion approx.')
 ax1.axvspan((x_j - xp)*1e6, (x_j + xn)*1e6, alpha=0.1, color='green',
             label=f'Depletion region (W = {W*1e9:.0f} nm)')
@@ -205,7 +205,7 @@ cells.append(nbf.v4.new_markdown_cell(r"""## Summary
 
 **Next up.** Notebook 02 replaces the Boltzmann equilibrium with a Slotboom $(\psi, \Phi_n, \Phi_p)$ block system, adds drift-diffusion continuity equations with SRH recombination, and runs forward and reverse bias sweeps against Shockley and SNS analytics. The equilibrium solution built here is the starting iterate for those sweeps.
 
-See [the repo](https://github.com/rwalkerlewis/kronos-semi) and its [capability matrix](https://github.com/rwalkerlewis/kronos-semi#status) for the full scope."""))
+See [the repo](https://github.com/rwalkerlewis/SemiSim) and its [capability matrix](https://github.com/rwalkerlewis/SemiSim#status) for the full scope."""))
 
 nb.cells = cells
 

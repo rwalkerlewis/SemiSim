@@ -5,7 +5,7 @@
 
 ## Context
 
-kronos-semi needs a way for users to specify a device: mesh, regions,
+SemiSim needs a way for users to specify a device: mesh, regions,
 doping profiles, contacts, physics options, solver options, and output
 preferences. Candidate formats are:
 

@@ -1,4 +1,4 @@
-# kronos-semi examples catalogue
+# SemiSim examples catalogue
 
 Each subdirectory is a self-contained practical device
 configuration. Examples are illustrative, not V&V gates; for

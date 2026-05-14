@@ -171,7 +171,7 @@ carriers, doping, etc.
 [`semi/materials.py:49-89`](../../semi/materials.py) is a module-level
 `dict[str, Material]`. Lookups via `get_material(name)`. The HTTP
 server's `GET /materials` endpoint
-([`kronos_server/routes/health.py`](../../kronos_server/routes/health.py))
+([`semisim_server/routes/health.py`](../../semisim_server/routes/health.py))
 returns this dict for UI autocomplete and validation. The UI never
 imports the engine; it reads the JSON dump and constructs the Region
 inputs against this allowed-name list.
@@ -208,7 +208,7 @@ Replace doping or dimensions, and you can repeat the same calculation.
 | `epsilon` property | `semi/materials.py:38-40` |
 | `is_semiconductor` / `is_insulator` | `semi/materials.py:42-46` |
 | Conversion helpers `cm3_to_m3`, `cm2_to_m2` | `semi/constants.py:29-46` |
-| `GET /materials` HTTP endpoint | `kronos_server/routes/health.py` |
+| `GET /materials` HTTP endpoint | `semisim_server/routes/health.py` |
 | Reference material in runner | `semi/runners/_common.py:reference_material` |
 
 ## Existing-docs cross-reference

@@ -1,6 +1,6 @@
 # Architecture
 
-kronos-semi is a FEniCSx-based finite-element semiconductor device simulator driven by a single JSON file (optionally referencing an external geometry/mesh artifact). It is organized as five layers. Higher layers depend on lower layers; lower layers must never import from higher layers. The pure-Python core (Layer 3) has an additional constraint: it must not import dolfinx, so that schema, material, and doping logic can be tested in a lightweight CI environment and used standalone.
+SemiSim is a FEniCSx-based finite-element semiconductor device simulator driven by a single JSON file (optionally referencing an external geometry/mesh artifact). It is organized as five layers. Higher layers depend on lower layers; lower layers must never import from higher layers. The pure-Python core (Layer 3) has an additional constraint: it must not import dolfinx, so that schema, material, and doping logic can be tested in a lightweight CI environment and used standalone.
 
 For the project mission and scope relative to the COMSOL Semiconductor Module, see [docs/ROADMAP.md](ROADMAP.md) and [README.md](../README.md).
 

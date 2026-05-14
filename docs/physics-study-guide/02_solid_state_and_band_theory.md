@@ -124,7 +124,7 @@ N_v = 2\left(\frac{m_p^\astkT}{2\pi\hbar^2}\right)^{3/2}.
 $$
 
 The full algebra of (2.6) is in Appendix B §B.1; the result is what
-matters for kronos-semi. At $T = 300\,\mathrm{K}$ in silicon,
+matters for SemiSim. At $T = 300\,\mathrm{K}$ in silicon,
 $N_c = 2.86\times 10^{19}\,\mathrm{cm}^{-3}$ and
 $N_v = 3.10\times 10^{19}\,\mathrm{cm}^{-3}$; these values come from
 Sze 3rd ed. Table 7 and appear in [`semi/materials.py:56-57`](../../semi/materials.py).
@@ -244,7 +244,7 @@ modern TCAD convention.
    quoted "electron effective masses" in silicon: the longitudinal
    $m_l$, the transverse $m_t$, and the density-of-states-effective
    $m_n^\ast$. The latter is what enters (2.6). The number Sze tabulates,
-   and the number behind kronos-semi's $N_c$, is $m_n^\ast= 1.08\,m_0$,
+   and the number behind SemiSim's $N_c$, is $m_n^\ast= 1.08\,m_0$,
    not the conductivity effective mass that enters mobility formulas.
 2. **Boltzmann limit only.** Equation (2.8) assumes $E_F$ sits well
    below $E_c$ (and well above $E_v$). At doping above $\sim 10^{19}\,\mathrm{cm}^{-3}$,
@@ -259,7 +259,7 @@ modern TCAD convention.
    factor out the sign and the unit conversion (Ch. 11).
 4. **$E_g$ is temperature-dependent.** $E_g(T)$ in silicon decreases by
    about 0.4 meV/K above 100 K; at 300 K, $E_g = 1.12\,\mathrm{eV}$, but
-   at 77 K it is about 1.16 eV. kronos-semi uses the 300 K value
+   at 77 K it is about 1.16 eV. SemiSim uses the 300 K value
    throughout; cryogenic device simulation would need a $T$-dependent
    $E_g$, which is M16+ work.
 5. **Direct vs indirect distinction is invisible to the DD engine.** The
@@ -342,6 +342,6 @@ the SRH-generation reverse-leakage that plagues silicon (Ch. 6).
   Chapters 7–8 are at the right level for this guide's audience.
 - **Sze and Ng, *Physics of Semiconductor Devices*, 3rd ed. (2007).**
   Chapter 1 §§1.2–1.4: bands, density of states, intrinsic carriers, with
-  the parameter tables that kronos-semi's material database draws from.
+  the parameter tables that SemiSim's material database draws from.
 - **Pierret, *Advanced Semiconductor Fundamentals*, 2nd ed. (2002).**
   Chapter 4 for a more device-physics-oriented treatment.

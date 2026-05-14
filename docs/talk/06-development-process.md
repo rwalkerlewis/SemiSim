@@ -48,7 +48,7 @@ future maintainer would need to understand — we wrote an ADR. An ADR
 captures the context, the decision, and the consequences in 200–300
 words. Once accepted, it is immutable. To change it you write a new one.
 
-The most important ADRs for kronos-semi:
+The most important ADRs for SemiSim:
 
 - **ADR 0001** — JSON as input format. Why not Python DSL, TOML, or YAML.
   Short answer: schema validation at the boundary, round-trip through
@@ -98,7 +98,7 @@ theoretical rate as we refine the mesh? MMS catches:
 - Stabilization bugs (order degrades on high-Péclet elements)
 - Coupling errors between the three PDE blocks
 
-The MMS suite in kronos-semi covers: Poisson 1D and 2D, multi-region
+The MMS suite in SemiSim covers: Poisson 1D and 2D, multi-region
 Poisson 2D, and coupled drift-diffusion in three variants (Poisson-only,
 full three-block with negligible recombination, and full three-block with
 realistic SRH). The finest-pair L² rates land at theoretical 2.000.

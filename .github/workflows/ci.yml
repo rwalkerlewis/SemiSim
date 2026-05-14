@@ -69,7 +69,7 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          tags: kronos-semi:ci
+          tags: semisim:ci
           load: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -93,7 +93,7 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          tags: kronos-semi:ci
+          tags: semisim:ci
           load: true
           cache-from: type=gha
           build-args: |
@@ -107,9 +107,9 @@ jobs:
         # the 2-core GHA runner; bump to a larger runner for further gains.
         run: |
           docker run --rm \
-            -v "${{ github.workspace }}:/workspaces/kronos-semi" \
-            -w /workspaces/kronos-semi \
-            kronos-semi:ci \
+            -v "${{ github.workspace }}:/workspaces/SemiSim" \
+            -w /workspaces/SemiSim \
+            semisim:ci \
             pytest tests/ -n auto --dist=loadfile --tb=short \
               --cov=semi --cov-report=term-missing --cov-report=xml \
               --cov-fail-under=95
@@ -244,7 +244,7 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          tags: kronos-semi:ci
+          tags: semisim:ci
           load: true
           cache-from: type=gha
           build-args: |
@@ -255,10 +255,10 @@ jobs:
         continue-on-error: ${{ matrix.allow-failure == 'true' }}
         run: |
           docker run --rm \
-            -v "${{ github.workspace }}:/workspaces/kronos-semi" \
-            -w /workspaces/kronos-semi \
+            -v "${{ github.workspace }}:/workspaces/SemiSim" \
+            -w /workspaces/SemiSim \
             -e MPLBACKEND=Agg \
-            kronos-semi:ci \
+            semisim:ci \
             python scripts/run_benchmark.py ${{ matrix.args }}
 
       - name: Upload results for ${{ matrix.name }}
@@ -284,7 +284,7 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          tags: kronos-semi:ci
+          tags: semisim:ci
           load: true
           cache-from: type=gha
           build-args: |
@@ -294,10 +294,10 @@ jobs:
       - name: Run V&V suite (MMS Poisson, mesh convergence, conservation, MMS DD)
         run: |
           docker run --rm \
-            -v "${{ github.workspace }}:/workspaces/kronos-semi" \
-            -w /workspaces/kronos-semi \
+            -v "${{ github.workspace }}:/workspaces/SemiSim" \
+            -w /workspaces/SemiSim \
             -e MPLBACKEND=Agg \
-            kronos-semi:ci \
+            semisim:ci \
             python scripts/run_verification.py all
 
       - name: Upload V&V results
@@ -330,7 +330,7 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          tags: kronos-semi:ci
+          tags: semisim:ci
           load: true
           cache-from: type=gha
           build-args: |
@@ -340,9 +340,9 @@ jobs:
       - name: Run physics validation audit
         run: |
           docker run --rm \
-            -v "${{ github.workspace }}:/workspaces/kronos-semi" \
-            -w /workspaces/kronos-semi \
-            kronos-semi:ci \
+            -v "${{ github.workspace }}:/workspaces/SemiSim" \
+            -w /workspaces/SemiSim \
+            semisim:ci \
             pytest tests/audit/ -v -m audit -s
 
       - name: Verify PHYSICS_AUDIT.md is in sync with audit run

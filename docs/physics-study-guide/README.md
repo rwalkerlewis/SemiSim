@@ -1,9 +1,9 @@
-# Physics study guide for kronos-semi
+# Physics study guide for SemiSim
 
 A pedagogical, first-principles walkthrough of every line of physics in
-the kronos-semi engine (v0.16.0+, schema v2.0.0, M16.1 shipped). After
+the SemiSim engine (v0.16.0+, schema v2.0.0, M16.1 shipped). After
 working through this guide, you should be able to open any file in
-`semi/`, `kronos_server/`, or `benchmarks/` and explain the physical
+`semi/`, `semisim_server/`, or `benchmarks/` and explain the physical
 meaning of every term, parameter, boundary condition, scaling factor,
 time-integrator coefficient, and design choice.
 

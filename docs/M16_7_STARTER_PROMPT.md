@@ -1,8 +1,8 @@
 ## Context
 
-You are working in `kronos-semi` at `v0.22.0` (post-M16.6, package
+You are working in `SemiSim` at `v0.22.0` (post-M16.6, package
 version `0.22.0`, schema `2.6.0`). The repo is at
-`https://github.com/rwalkerlewis/kronos-semi`; `main` is at
+`https://github.com/rwalkerlewis/SemiSim`; `main` is at
 `0db3ef6` (`M16.6: BBT and TAT tunneling (#83)`).
 
 Your assignment is **M16.7: Time-varying transient contact voltage**,
@@ -643,7 +643,7 @@ PHYSICS_INTRO compress to "no remaining M16 gaps."
 - [ ] Slotboom primary unknowns retained; no SUPG / streamline
       diffusion (ADR 0004).
 - [ ] `make_scaling_from_config` still on every solve path.
-- [ ] No PETSc / UFL types leak into `kronos_server` public
+- [ ] No PETSc / UFL types leak into `semisim_server` public
       API.
 - [ ] Schema bumped per minor (2.6.0 to 2.7.0); v2.0.0 through
       v2.6.0 inputs still validate.

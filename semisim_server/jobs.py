@@ -176,7 +176,7 @@ def _write_failure_manifest(
         sha = hashlib.sha256(input_bytes).hexdigest() if input_bytes else "0" * 64
         manifest = {
             "schema_version": "1.0.0",
-            "engine": {"name": "kronos-semi", "version": _get_version(), "commit": _git_commit()},
+            "engine": {"name": "SemiSim", "version": _get_version(), "commit": _git_commit()},
             "run_id": run_id,
             "status": "failed",
             "wall_time_s": float(wall),

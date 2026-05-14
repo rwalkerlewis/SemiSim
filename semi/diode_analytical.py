@@ -437,7 +437,7 @@ def vbi_fermi_dirac(
     """
     Built-in voltage on a 1D pn junction under Fermi-Dirac statistics.
 
-    Works in the kronos-semi Slotboom convention where psi is measured
+    Works in the SemiSim Slotboom convention where psi is measured
     from the intrinsic Fermi level (so `n = n_i exp(psi/V_t)` under
     Boltzmann). The bulk equilibrium psi on each side is recovered
     from the FD charge-neutrality root:

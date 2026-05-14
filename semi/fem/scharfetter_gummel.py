@@ -22,7 +22,7 @@ to the conventional current density on the edge from i to j. At zero
 field with n_j > n_i, F > 0 (current in +∇n direction); at uniform n
 with psi_j > psi_i, F < 0 (electrons drift toward j, conventional
 current opposite). This matches the textbook
-`J_n = q mu_n n E + q D_n grad(n)` once the kronos-semi phi_n sign
+`J_n = q mu_n n E + q D_n grad(n)` once the SemiSim phi_n sign
 convention is unwound (see notes in `semi/postprocess.py`,
 `evaluate_partial_currents`). The user-prompt formula
 `F = (mu V_t/h)[B(-dpsi) n_j - B(+dpsi) n_i]` had the B-arguments

@@ -8,14 +8,14 @@
   the maximum depletion width $W_\mathrm{dmax}$, the oxide capacitance
   $C_{ox}$, and the minimum HF capacitance $C_\mathrm{min}$.
 - Distinguish low-frequency (LF) from high-frequency (HF) C–V curves
-  and explain why kronos-semi computes HF via a depletion-approximation
+  and explain why SemiSim computes HF via a depletion-approximation
   clamp rather than a true AC small-signal solve.
 - Reproduce the analytical anchors at the Hu Fig. 5-18 reference parameters
   ($N_a = 5\times 10^{16}\,\mathrm{cm^{-3}}$, $T_{ox} = 10\,\mathrm{nm}$,
   $\phi_{ms} = -0.95\,\mathrm{V}$): $V_{fb} = -0.950\,\mathrm{V}$,
   $V_T = +0.181\,\mathrm{V}$, $|\phi_B| = 0.399\,\mathrm{V}$,
   $W_\mathrm{dmax} = 144\,\mathrm{nm}$, $C_\mathrm{min}/C_{ox} = 0.173$.
-- Recognize the kronos-specific BC-convention shift $V_{fb} = \phi_{ms} - \phi_F$
+- Recognize the SemiSim-specific BC-convention shift $V_{fb} = \phi_{ms} - \phi_F$
   (vs the textbook $V_{fb} = \phi_{ms}$) and explain why it differs.
 
 ## Physical motivation
@@ -29,7 +29,7 @@ capacitor encodes the doping, the oxide thickness, the work-function
 difference, and the interface trap density — making it the workhorse
 diagnostic for MOSFET process technology.
 
-kronos-semi's M6 benchmark and M14.2 axisymmetric refresh both target
+SemiSim's M6 benchmark and M14.2 axisymmetric refresh both target
 the MOSCAP for two reasons: (1) it exercises the multi-region (Si/SiO₂)
 infrastructure (Ch. 14); (2) the textbook closed-form C–V curve gives a
 hard verification target. The shipped engine reproduces Hu's Fig. 5-18
@@ -163,7 +163,7 @@ $$
 
 This is the LF–HF distinction that the C–V community lives by.
 
-### LF and HF curves: kronos-semi's implementation
+### LF and HF curves: SemiSim's implementation
 
 **Low-frequency (quasi-static).** The textbook formula in
 [`semi/cv.py:210-285`](../../semi/cv.py) (`lf_cv_quasistatic`) inverts
@@ -174,7 +174,7 @@ $Q_s$-vs-$V_g$ table from a swept FEM solve.
 
 **High-frequency.** The strict definition is "AC capacitance with
 frozen minority carriers." The proper way to compute it is an AC
-small-signal sweep at high $\omega$ (Ch. 18). kronos-semi instead uses
+small-signal sweep at high $\omega$ (Ch. 18). SemiSim instead uses
 a **depletion-approximation clamp**: for $\psi_s > 2|\phi_B|$, freeze
 $W_\mathrm{dep} = W_\mathrm{dmax}$ and use (9.5). This matches the
 textbook HF curve to a few percent on the standard reference parameters

@@ -224,7 +224,7 @@ consistency pass):
 - `python scripts/run_verification.py all`: 62/62 PASS.
 - Dockerized FEM CI on the pre-rebase content-equivalent commit
   `be7e122`: success, run
-  [24792113343](https://github.com/rwalkerlewis/kronos-semi/actions/runs/24792113343).
+  [24792113343](https://github.com/rwalkerlewis/SemiSim/actions/runs/24792113343).
   The post-rebase branch was re-run by CI on the docs commit (see
   next subsection); no source file changed between the pre-rebase
   and post-rebase Phase 7 tip.
@@ -252,13 +252,13 @@ pass on the new parent chain.
 Run URLs (one-click, keyed to the pre-rebase SHA the run executed
 against):
 
-- `be7e122` (Phase 7): https://github.com/rwalkerlewis/kronos-semi/actions/runs/24792113343
-- `4eb6370` (Phase 6): https://github.com/rwalkerlewis/kronos-semi/actions/runs/24790258164
-- `a589cde` (Phase 5): https://github.com/rwalkerlewis/kronos-semi/actions/runs/24785058646
-- `637f495` (Phase 4): https://github.com/rwalkerlewis/kronos-semi/actions/runs/24772809136
-- `cf1f716` (Phase 3): https://github.com/rwalkerlewis/kronos-semi/actions/runs/24771269911
-- `35dabc2` (Phase 2): https://github.com/rwalkerlewis/kronos-semi/actions/runs/24769459042
-- `6fc9da4` (Phase 1): https://github.com/rwalkerlewis/kronos-semi/actions/runs/24765045431
+- `be7e122` (Phase 7): https://github.com/rwalkerlewis/SemiSim/actions/runs/24792113343
+- `4eb6370` (Phase 6): https://github.com/rwalkerlewis/SemiSim/actions/runs/24790258164
+- `a589cde` (Phase 5): https://github.com/rwalkerlewis/SemiSim/actions/runs/24785058646
+- `637f495` (Phase 4): https://github.com/rwalkerlewis/SemiSim/actions/runs/24772809136
+- `cf1f716` (Phase 3): https://github.com/rwalkerlewis/SemiSim/actions/runs/24771269911
+- `35dabc2` (Phase 2): https://github.com/rwalkerlewis/SemiSim/actions/runs/24769459042
+- `6fc9da4` (Phase 1): https://github.com/rwalkerlewis/SemiSim/actions/runs/24765045431
 
 ### Local Docker notebook execution
 

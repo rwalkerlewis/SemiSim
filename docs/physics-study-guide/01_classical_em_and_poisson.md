@@ -5,7 +5,7 @@
 By the end of this chapter you will be able to:
 
 - Derive Poisson's equation $-\nabla\cdot(\varepsilon\nabla\psi) = \rho$ in matter from Maxwell's equations and the electrostatic limit.
-- Explain why kronos-semi solves for the electrostatic potential $\psi$ rather than the electric field $\mathbf{E}$.
+- Explain why SemiSim solves for the electrostatic potential $\psi$ rather than the electric field $\mathbf{E}$.
 - Identify the four standard boundary conditions used in the engine — Dirichlet (ohmic, gate), homogeneous Neumann (insulating), interface flux continuity (Si/SiO₂), and the natural axis-of-symmetry BC at $r=0$ — and recognize them in the JSON schema and in `semi/bcs.py`.
 - Recognize the dielectric materials shipped in `semi/materials.py` and connect their $\varepsilon_r$ to a microscopic picture of polarization.
 - Locate every term of the dimensional Poisson equation in
@@ -272,7 +272,7 @@ side at a depletion-region point where $n,p \ll N_D - N_A$.
    $\nabla\cdot(\varepsilon\nabla\psi) = -\rho$ (with the minus on the
    right), others write $-\nabla\cdot(\varepsilon\nabla\psi) = \rho$
    (with the minus on the left). Both are correct; they differ by a
-   notational choice for which side absorbs the negation. kronos-semi
+   notational choice for which side absorbs the negation. SemiSim
    uses the second form, matching `build_equilibrium_poisson_form`'s
    residual `+stiffness − rho_hat`.
 3. **$\mathbf{E}$ vs $\mathbf{D}$ continuity.** At a dielectric interface,

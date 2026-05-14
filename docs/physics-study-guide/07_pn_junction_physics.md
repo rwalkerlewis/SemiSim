@@ -293,7 +293,7 @@ The M3 verifier accepts 20% agreement; the engine match is well within.
    approximation results overestimate $W$ by a few percent. See the
    M4 mesh-convergence study ([`docs/PHYSICS.md` §5.2](../PHYSICS.md))
    for the *physics-model gap* honest flag.
-2. **Sign of $V$.** kronos-semi sets the *cathode* (n-side) ohmic
+2. **Sign of $V$.** SemiSim sets the *cathode* (n-side) ohmic
    contact to a swept voltage; the anode is at zero. So a "forward"
    bias of +0.6 V on the cathode is actually reverse — be careful with
    per-benchmark conventions. The `pn_1d_bias_reverse` config inverts

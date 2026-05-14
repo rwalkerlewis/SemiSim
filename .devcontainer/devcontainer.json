@@ -1,8 +1,8 @@
 {
-  "name": "kronos-semi",
+  "name": "SemiSim",
   "dockerComposeFile": "../docker-compose.yml",
   "service": "dev",
-  "workspaceFolder": "/workspaces/kronos-semi",
+  "workspaceFolder": "/workspaces/SemiSim",
   "remoteUser": "dev",
   "customizations": {
     "vscode": {

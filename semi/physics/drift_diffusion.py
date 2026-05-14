@@ -488,7 +488,7 @@ def _build_schottky_surface_forms(
             psi, phi_p, ni_hat,
             statistics_cfg=statistics_cfg, eta_offset_p=eta_offset_p,
         )
-        # Electron Robin BC sign: kronos-semi tests
+        # Electron Robin BC sign: SemiSim tests
         # -div(mu n grad(phi_n)) = R, so the IBP boundary integral
         # -int (mu n grad(phi_n)).n_face v ds picks up a +/- sign
         # depending on whether n_face_outward points into or out of

@@ -1,6 +1,6 @@
 # Roadmap
 
-kronos-semi is a FEniCSx-based finite-element semiconductor device simulator that mimics the capabilities of the COMSOL Semiconductor Module. Simulations are driven by a single JSON file (optionally referencing an external geometry/mesh artifact) and are otherwise plain text. The project ships 1D, 2D, and 3D benchmark problems and a zero-setup Colab notebook (cloud-hosted, no local install) so reviewers can run everything from a browser.
+SemiSim is a FEniCSx-based finite-element semiconductor device simulator that mimics the capabilities of the COMSOL Semiconductor Module. Simulations are driven by a single JSON file (optionally referencing an external geometry/mesh artifact) and are otherwise plain text. The project ships 1D, 2D, and 3D benchmark problems and a zero-setup Colab notebook (cloud-hosted, no local install) so reviewers can run everything from a browser.
 
 ## Capability matrix
 
@@ -80,7 +80,7 @@ corrected verifier is a future M-numbered milestone.
 
 ## Scope vs. COMSOL Semiconductor Module
 
-kronos-semi covers the quasi-static steady-state and time-dependent
+SemiSim covers the quasi-static steady-state and time-dependent
 subsets of the COMSOL Semiconductor Module, plus AC small-signal
 analysis and axisymmetric (cylindrical) 2D devices:
 
@@ -546,7 +546,7 @@ contributors and reviewers know the intended direction.
 - **Goal:** Expose the solver over HTTP so the future UI (separate
   repo) can drive simulations without installing the Python package.
 - **Deliverables:**
-  - `kronos_server/` top-level package with a FastAPI app.
+  - `semisim_server/` top-level package with a FastAPI app.
   - `POST /solve` — accepts a JSON config, queues a solve, returns a
     run ID.
   - `GET /runs/{id}` — returns the run status and artifact paths.

@@ -1,4 +1,4 @@
-# Agentic development strategy for kronos-semi
+# Agentic development strategy for SemiSim
 
 Working draft. The goal is to formalize the development pattern that has
 already produced M9 through M16.1, then extend it to handle multiple
@@ -91,8 +91,8 @@ operational prompt cannot. The worker does not make calls.
 ### 1.4 Two-terminal worktree pattern
 
 ```
-git worktree add ../kronos-semi-review main      # reviewer
-cd ../kronos-semi                                # worker
+git worktree add ../SemiSim-review main      # reviewer
+cd ../SemiSim                                # worker
 ```
 
 Reviewer on `main` (or the PR branch under review); worker on the
@@ -1276,7 +1276,7 @@ These are the things this draft does not yet answer.
     physics; not for others.
 15. How does §6.9 honest-signaling interact with marketing or
     user-facing copy? The CHANGELOG and capability matrix can be
-    honest, but a separate "what kronos-semi can do" page on a
+    honest, but a separate "what SemiSim can do" page on a
     project website can drift. Out of scope for this doc but
     worth flagging.
 

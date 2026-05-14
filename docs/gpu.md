@@ -1,6 +1,6 @@
 # GPU linear-solver path (M15)
 
-Kronos-semi can run the linear solve at each Newton step on the GPU
+SemiSim can run the linear solve at each Newton step on the GPU
 through PETSc's CUDA or HIP build. The CPU-MUMPS path remains the
 default and is bit-identical to v0.14.1.
 
@@ -42,7 +42,7 @@ UI can gate the backend dropdown.
 
 ### Override at run time
 
-The environment variable `KRONOS_BACKEND` overrides
+The environment variable `SEMISIM_BACKEND` overrides
 `solver.backend` if set. Useful for switching the entire benchmark
 suite onto the GPU for one CI run without editing JSON files.
 
@@ -56,7 +56,7 @@ conda install -c conda-forge petsc=3.21 petsc4py "petsc=*=cuda*" amgx
 ```
 
 ```dockerfile
-# In the kronos-semi Dockerfile, replace the petsc apt line with
+# In the SemiSim Dockerfile, replace the petsc apt line with
 RUN pip install --no-binary petsc4py "petsc[cuda]" amgx-python
 ```
 

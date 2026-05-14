@@ -79,7 +79,7 @@ $$
 Equation (3.4) is **Boltzmann statistics**. The error in (3.4) relative
 to (3.3) is below 2% at $\eta_F = -3$, below 10% at $\eta_F = -1$, and
 explodes for $\eta_F \geq 0$ (degenerate doping). The numerical
-boundary kronos-semi flags is around $n \sim 10^{19}\,\mathrm{cm^{-3}}$
+boundary SemiSim flags is around $n \sim 10^{19}\,\mathrm{cm^{-3}}$
 in silicon, which corresponds to $\eta_F \approx 0$.
 
 ### Intrinsic level and the engine's working form
@@ -207,7 +207,7 @@ giving $p^L - n^L = N_A$ exactly.
    gated by `physics.statistics: "fermi_dirac"`.
 2. **$n_i$ is not a fundamental constant.** Different references quote
    different values: 1.45×10¹⁰ in older textbooks, 1.0×10¹⁰ in modern
-   TCAD (Altermatt 2003, what kronos-semi uses), 1.08×10¹⁰ from the
+   TCAD (Altermatt 2003, what SemiSim uses), 1.08×10¹⁰ from the
    Sze tabulation. The discrepancy is from temperature, bandgap
    narrowing, and effective-mass values; for built-in voltage
    comparisons, $\Delta V_{bi} = 2 V_t \ln(n_{i,1}/n_{i,2})$, about 19 mV
@@ -304,6 +304,6 @@ convergence.
 - **Altermatt, P. P., et al. (2003).** "A simulation model for the
   density of states and for incomplete ionization in crystalline silicon."
   *J. Appl. Phys.* 93, 1598. The source of the modern $n_i = 1.0\times 10^{10}$
-  value used by kronos-semi (vs the older textbook 1.45×10¹⁰).
+  value used by SemiSim (vs the older textbook 1.45×10¹⁰).
 - **Hu, *Modern Semiconductor Devices for Integrated Circuits* (2010).**
   §1.7: Fermi level, $n_i$ at 300 K, intuitive numerical examples.

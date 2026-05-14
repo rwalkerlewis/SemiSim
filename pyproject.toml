@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "kronos-semi"
+name = "SemiSim"
 version = "0.25.0"
 description = "JSON-driven FEM semiconductor device simulator on FEniCSx"
 readme = "README.md"
@@ -72,16 +72,16 @@ server = [
 
 [project.scripts]
 semi-run = "semi.io.cli:main"
-kronos-server = "kronos_server.app:main"
+semisim-server = "semisim_server.app:main"
 
 [project.urls]
-Repository = "https://github.com/rwalkerlewis/kronos-semi"
-Issues = "https://github.com/rwalkerlewis/kronos-semi/issues"
+Repository = "https://github.com/rwalkerlewis/SemiSim"
+Issues = "https://github.com/rwalkerlewis/SemiSim/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["semi", "kronos_server"]
+packages = ["semi", "semisim_server"]
 # Ship the JSON-schema companion files inside the wheel so `pip install
-# kronos-semi` brings along `schemas/input.v1.json` (loaded by semi.schema
+# SemiSim` brings along `schemas/input.v1.json` (loaded by semi.schema
 # at import time) and `schemas/manifest.v1.json` (used by semi.io.reader).
 force-include = {"schemas" = "schemas"}
 

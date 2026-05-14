@@ -1,6 +1,6 @@
 # Documentation
 
-Top-level table of contents for the kronos-semi documentation tree.
+Top-level table of contents for the SemiSim documentation tree.
 For the project overview, install instructions, and quick start, see
 the repository [README](../README.md).
 
@@ -63,4 +63,4 @@ the repository [README](../README.md).
 ## Issues and follow-ups
 
 Open follow-ups are tracked on GitHub:
-[rwalkerlewis/kronos-semi/issues](https://github.com/rwalkerlewis/kronos-semi/issues).
+[rwalkerlewis/SemiSim/issues](https://github.com/rwalkerlewis/SemiSim/issues).
