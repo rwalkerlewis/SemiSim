@@ -221,13 +221,15 @@ jobs:
           # example is broken and the PR should not merge.
           #
           # nmos_idvgs: V_GS bias sweep across the MOSFET inversion
-          # onset under FD statistics, where the current SNES
-          # configuration in bias_sweep stagnates without a line-
-          # search-strategy upgrade. Tagged allow-failure: "true"
-          # while the bias_sweep stabilization follow-up lands.
+          # onset, exercising the M18.1 PETSc nleqerr line-search path
+          # (ADR 0018) for the bias_sweep coupled SNES inner solve. The
+          # shipped example operates at N_A = 1e16 cm^-3 body and
+          # V_GS in [0, 0.5] V; the heavier-body / wider-sweep regime
+          # is deferred behind "Bias-sweep SNES robustness, phase 2"
+          # (ADR 0018 Deferred section). Retired the M16.1-era
+          # allow-failure: "true" carve-out in M18.1.
           - name: nmos_idvgs
             args: nmos_idvgs
-            allow-failure: "true"
           - name: schottky_iv_temperature
             args: schottky_iv_temperature
           # power_diode_reverse_recovery: M18 (adaptive dt for the
