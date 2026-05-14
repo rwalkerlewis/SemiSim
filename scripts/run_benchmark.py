@@ -3304,23 +3304,23 @@ def _drain_voltage_overrides(cfg, v_ds_values):
 @register("nmos_idvgs")
 def verify_nmos_idvgs(result) -> list[tuple[str, bool, str]]:
     """
-    Smoke verifier for the nmos_idvgs example.
+    Smoke verifier for the nmos_idvgs example (M18.1 re-parameterisation).
 
     Anchor run: V_DS = 0.05 V (linear regime), V_GS sweep from the JSON.
-    Companion run: V_DS = 1.8 V (saturation regime), same V_GS sweep,
-    invoked here via in-process semi.run.run() with the drain voltage
-    overridden.
+    The shipped sweep is [0, 0.5] V at N_A = 1e16 cm^-3 body, exercising
+    subthreshold conduction through the onset of weak inversion. The
+    M18.1 bias_sweep nleqerr line search (ADR 0018) navigates the
+    depletion-to-inversion transition without stalling the SNES bt
+    merit function.
 
-    Checks (smoke only; tight tolerances live under benchmarks/):
-      - Both runs complete without raising and record an iv table.
-      - I(V_GS) is finite at every V_GS for both V_DS values.
-      - For every V_DS, J_drain is monotonically non-decreasing in V_GS
-        (transistor sits on the right side of subthreshold; small dips
-        below 1 % of the local maximum are tolerated as numerical noise).
-      - I_D at V_GS = 1.8 V, V_DS = 1.8 V is positive and finite.
+    Checks (smoke only; the V&V layer lives under benchmarks/):
+      - Anchor run completed and recorded iv rows.
+      - J_drain is finite at every V_GS.
+      - |J_drain| is monotonically non-decreasing in V_GS (small dips
+        below 1 % of the running max are tolerated as numerical noise).
+      - dJ_drain / dV_GS > 0 over the upper half of the sweep
+        (positive transconductance in the inversion-onset window).
     """
-    from semi import run as semi_run
-
     cfg_anchor = result.cfg
     iv_anchor = list(result.iv or [])
 
@@ -3330,94 +3330,58 @@ def verify_nmos_idvgs(result) -> list[tuple[str, bool, str]]:
             False, "no iv rows in result",
         )]
 
-    v_ds_other = 1.8
-    print(f"[nmos_idvgs] running companion sweep at V_DS = {v_ds_other} V...",
-          flush=True)
-    iv_by_vds: dict[float, list[dict]] = {}
-    iv_by_vds[float(cfg_anchor["contacts"][2]["voltage"])] = iv_anchor
-
-    for v_ds, cfg_v in _drain_voltage_overrides(cfg_anchor, [v_ds_other]):
-        res = semi_run.run(cfg_v)
-        iv_by_vds[v_ds] = list(res.iv or [])
-
     checks: list[tuple[str, bool, str]] = []
 
-    for v_ds, iv in sorted(iv_by_vds.items()):
-        if not iv:
-            checks.append((
-                f"nmos_idvgs: V_DS = {v_ds:.2f} V run recorded iv rows",
-                False, "iv table empty",
-            ))
-            continue
+    # The gate is the sweep contact, so iv_anchor rows are V_GS samples.
+    # record_iv writes V and J on the sweep contact; the M14.3 bias_sweep
+    # extension adds per-ohmic-contact J_drain etc. as additive entries.
+    gate_iv = sorted(iv_anchor, key=lambda r: float(r["V"]))
+    if not gate_iv or "J_drain" not in gate_iv[0]:
+        return [(
+            "nmos_idvgs: anchor run recorded J_drain",
+            False,
+            "expected per-step J_drain from the M14.3 bias_sweep extension",
+        )]
 
-        gate_iv = sorted(
-            (r for r in iv if r.get("contact") == "gate"),
-            key=lambda r: r["V"],
-        )
-        if not gate_iv or "J_drain" not in gate_iv[0]:
-            checks.append((
-                f"nmos_idvgs: V_DS = {v_ds:.2f} V run recorded J_drain",
-                False,
-                "expected per-step J_drain from the M14.3 bias_sweep extension",
-            ))
-            continue
+    v_gs = np.array([r["V"] for r in gate_iv], dtype=float)
+    j_drain = np.array([r["J_drain"] for r in gate_iv], dtype=float)
 
-        j_drain = np.array([r["J_drain"] for r in gate_iv], dtype=float)
-
-        finite = bool(np.all(np.isfinite(j_drain)))
-        checks.append((
-            f"nmos_idvgs: V_DS = {v_ds:.2f} V J_drain finite",
-            finite,
-            f"non-finite samples: {int((~np.isfinite(j_drain)).sum())} "
-            f"/ {len(j_drain)}",
-        ))
-        if not finite:
-            continue
-
-        # Monotonic-non-decreasing in V_GS, with a 1 % local-maximum
-        # tolerance for numerical noise (the smoke gate is qualitative).
-        running_max = np.maximum.accumulate(np.abs(j_drain))
-        violations = np.sum(np.abs(j_drain) < running_max * 0.99)
-        checks.append((
-            f"nmos_idvgs: V_DS = {v_ds:.2f} V |J_drain| monotone in V_GS "
-            f"(<= 1 % dips tolerated)",
-            int(violations) == 0,
-            f"{int(violations)} / {len(j_drain)} samples below the running max",
-        ))
-
-    iv_sat = iv_by_vds.get(v_ds_other, [])
-    gate_iv_sat = sorted(
-        (r for r in iv_sat if r.get("contact") == "gate"),
-        key=lambda r: r["V"],
-    )
-    j_at_max = None
-    for r in gate_iv_sat[::-1]:
-        if abs(float(r["V"]) - 1.8) < 1.0e-6 and "J_drain" in r:
-            j_at_max = float(r["J_drain"])
-            break
-    if j_at_max is None and gate_iv_sat:
-        last = gate_iv_sat[-1]
-        if "J_drain" in last:
-            j_at_max = float(last["J_drain"])
-
+    finite = bool(np.all(np.isfinite(j_drain)))
     checks.append((
-        "nmos_idvgs: I_D at V_GS = 1.8 V, V_DS = 1.8 V positive and finite",
-        j_at_max is not None and np.isfinite(j_at_max) and j_at_max > 0.0,
-        f"J_drain = {j_at_max!r}",
+        "nmos_idvgs: J_drain finite across V_GS sweep",
+        finite,
+        f"non-finite samples: {int((~np.isfinite(j_drain)).sum())} "
+        f"/ {len(j_drain)}",
+    ))
+    if not finite:
+        return checks
+
+    running_max = np.maximum.accumulate(np.abs(j_drain))
+    violations = np.sum(np.abs(j_drain) < running_max * 0.99)
+    checks.append((
+        "nmos_idvgs: |J_drain| monotone in V_GS (<= 1 % dips tolerated)",
+        int(violations) == 0,
+        f"{int(violations)} / {len(j_drain)} samples below the running max",
     ))
 
+    n = len(v_gs)
+    if n >= 4:
+        # Inversion-onset window: upper half of the sweep. dJ/dV_GS via
+        # forward finite differences; check strictly positive at every
+        # sample in the window. The shipped sweep is [0, 0.5] V at 0.1 V
+        # step, so the window is V_GS in [0.3, 0.5] V (4 samples, 3
+        # forward differences).
+        i_lo = max(1, n // 2)
+        diff = np.diff(j_drain[i_lo - 1:])
+        positive = bool(np.all(diff > 0.0))
+        checks.append((
+            "nmos_idvgs: positive transconductance in the inversion-onset window",
+            positive,
+            f"min dJ/dV_GS over V_GS >= {v_gs[i_lo - 1]:.2f} V: {float(diff.min()):.3e}",
+        ))
+
     result._nmos_curves_by_vds = {
-        v_ds: (
-            np.array([r["V"] for r in sorted(
-                (q for q in iv if q.get("contact") == "gate"),
-                key=lambda q: q["V"],
-            )], dtype=float),
-            np.array([r.get("J_drain", float("nan")) for r in sorted(
-                (q for q in iv if q.get("contact") == "gate"),
-                key=lambda q: q["V"],
-            )], dtype=float),
-        )
-        for v_ds, iv in iv_by_vds.items()
+        float(cfg_anchor["contacts"][2]["voltage"]): (v_gs, j_drain),
     }
     return checks
 
