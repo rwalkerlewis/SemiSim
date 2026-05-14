@@ -1138,6 +1138,15 @@ The engine is ready for a UI when all of these are green:
 
 ### [Unreleased]
 
+- **2026-05-14**, author M18.1 starter prompt
+  ([M18_1_STARTER_PROMPT.md](M18_1_STARTER_PROMPT.md)) on branch
+  `dev/m18.1-bias-sweep-snes-stabilization`; phases 0 through F
+  ship the SNES line-search stabilization for the bias_sweep
+  runner and retire the `nmos_idvgs` CI `allow-failure: "true"`
+  carve-out. ADR 0018 documents the line-search decision and the
+  rejected alternatives (damping, FD homotopy); cross-references
+  ADR 0008 (M12 SNES tolerance amendment, same solver path).
+
 ### [0.25.0]
 
 - **2026-05-09**, M18 adaptive timestep for the transient runner
