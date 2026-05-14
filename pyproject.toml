@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kronos-semi"
-version = "0.24.0"
+version = "0.25.0"
 description = "JSON-driven FEM semiconductor device simulator on FEniCSx"
 readme = "README.md"
 license = {text = "MIT"}

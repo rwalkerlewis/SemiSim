@@ -25,9 +25,93 @@ contact type; shipped with `[0.21.0]` below), **2.6.0**
 (additive minor; M16.6 BBT and TAT tunneling dispatch; shipped
 with `[0.22.0]` below), **2.7.0** (additive minor; M16.7
 transient time-varying contact voltage `voltage_t`; shipped with
-`[0.23.0]` below), and **2.8.0** (additive minor; M17 heterojunction
+`[0.23.0]` below), **2.8.0** (additive minor; M17 heterojunction
 / position-dependent material parameters via `regions[].material_overrides`
-and `regions[].heterojunction`; shipped with `[0.24.0]` below).
+and `regions[].heterojunction`; shipped with `[0.24.0]` below),
+and **2.9.0** (additive minor; M18 adaptive time-step controller
+`solver.adaptive` for the transient runner; shipped with
+`[0.25.0]` below).
+
+## [0.25.0] - 2026-05-09
+
+### Added
+
+- **M18 adaptive timestep for the transient runner.** Schema
+  additive minor bump v2.8.0 -> v2.9.0 (`solver.adaptive` with
+  `enabled`, `dt_min`, `dt_max`, `easy_iter_threshold`,
+  `grow_factor`, `max_consecutive_failures`; rejected at validate
+  time on non-transient solver types). Closes the transient half
+  of the CI carve-out introduced in `ed6719b`. The
+  `power_diode_reverse_recovery` example
+  (`examples/power_diode_reverse_recovery/diode_recovery.json`)
+  enables `solver.adaptive` (`dt_min = 1 ps`, `dt_max = 5 ns`)
+  and retires its `allow-failure: "true"` flag. The `mosfet_2d`
+  and `nmos_idvgs` `allow-failure: "true"` flags stay in place
+  (those are bias_sweep SNES stabilization work, not transient
+  work). Configs without `solver.adaptive` (or with
+  `solver.adaptive.enabled: false`) are bit-identical to v0.24.0
+  on every existing benchmark (anchors: pn_1d_bias J(V=0.6 V) =
+  1.635e+03 A/m^2; diode_velsat_1d 56.27 % @ V_F=0.9 V, 0.19 %
+  @ V_F=0.3 V; diode_auger_1d >20 % SRH-vs-Auger divergence;
+  diode_fermi_dirac_1d 7.37 % FD-vs-Boltzmann V_bi at
+  N_D=1e20 cm^-3; schottky_1d worst-case <10 % thermionic match;
+  zener_1d worst-case <20 % Kane match; pn_1d_turnon, pn_1d_pulse,
+  diode_sine_1d, rc_ac_sweep all bit-identical).
+- **Variable-step BDF2 coefficients.**
+  `BDFCoefficients.variable_bdf2(omega)` in
+  `semi/timestepping.py` returns the non-uniform-stencil triplet
+  `((1+2*omega)/(1+omega), -(1+omega), omega**2/(1+omega))` for
+  `omega = dt_n / dt_{n-1}`; collapses to `(1.5, -2.0, 0.5)` at
+  `omega = 1.0` (the bit-identity hinge). Sum-to-zero (constant
+  exactness) and `alpha_0 - alpha_2/omega == 1` (linear
+  exactness) checked at multiple omega values in
+  `tests/test_variable_bdf2.py`.
+- **Adaptive-dt controller in the transient runner.** A new
+  `else` branch in `semi/runners/transient.py` snapshots the
+  Slotboom state on SNES non-convergence, halves dt, and retries;
+  reuses `semi.continuation.AdaptiveStepController` (the same
+  class that drives the bias_sweep voltage ramp) on the dt axis;
+  drives `alpha0_const` and `dt_const` per step from
+  `variable_bdf2(omega)`. dt is also clamped at `t_end` and at
+  every `voltage_t` waveform breakpoint
+  (`step.t0` and every interior `table.times[i]`) so the
+  integrator never straddles a slope change. The fixed-dt branch
+  (`solver.adaptive` absent or `enabled: false`) is preserved
+  verbatim and is the bit-identity branch.
+- **Audit case 07.**
+  `tests/audit/test_07_adaptive_dt_vs_fixed_dt.py`. Compares the
+  adaptive run on `benchmarks/pn_1d_turnon` against the shipped
+  fixed-dt reference; subsamples adaptive onto the fixed grid
+  via linear interpolation; asserts worst-case `|I_adapt -
+  I_fixed| / |I_fixed| < 0.01` at every recorded sample.
+- **Pure-Python and FEM coverage tests for the controller.**
+  `tests/test_adaptive_dt_schema.py` (16 cases),
+  `tests/test_variable_bdf2.py` (24 cases), and
+  `tests/fem/test_adaptive_dt_transient.py` (8 cases gated on
+  dolfinx) cover every controller transition (grow, halve, floor
+  exhaustion via `StepTooSmall`, endpoint clamp, breakpoint
+  clamp for both `voltage_t` variants, bit-identity on the
+  disabled branch, and variable-step BDF2 coefficients flowing
+  through the runner). Coverage gate at 95 holds without a
+  follow-up commit.
+- **ADR 0017** (`docs/adr/0017-adaptive-transient-dt.md`). Status
+  Accepted. Documents the controller choice (reuse of
+  `AdaptiveStepController`), the variable-step BDF2 path, the
+  breakpoint clamping rule, and the relationship to ADR 0010
+  (amends "adaptive time stepping is not implemented in M13",
+  scoped to the transient runner).
+
+### Changed
+
+- `examples/power_diode_reverse_recovery/diode_recovery.json`
+  enables `solver.adaptive` and bumps `solver.max_steps` from
+  250 to 2000 to accommodate the smaller dt during the
+  +0.7 V to -2.0 V transition at t = 50-60 ns.
+- `.github/workflows/ci.yml` removes the
+  `power_diode_reverse_recovery` `allow-failure: "true"` flag and
+  updates the carve-out comment block; the `nmos_idvgs` and
+  `mosfet_2d` flags stay in place.
+- Package version: `0.24.0` -> `0.25.0`.
 
 ## [0.24.0] - 2026-05-06
 

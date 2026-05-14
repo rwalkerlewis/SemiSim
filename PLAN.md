@@ -36,12 +36,42 @@ recombination for 1D/2D/3D devices.
 ## Current state
 
 M1 through M15 plus M14.3, M14.4, M16.1, M16.2, M16.3, M16.4,
-M16.5, M16.6, M16.7, and M17 are merged into `main`. Current
-package version is `0.24.0`; M17 (heterojunction / position-
-dependent band structure, branch `dev/m17-heterojunction`)
-shipped in v0.24.0 with schema additive minor bump v2.7.0 ->
-v2.8.0 (`regions[].material_overrides` with `chi_eV`, `Eg_eV`,
-`Nc_per_cm3`, `Nv_per_cm3`; `regions[].heterojunction` boolean).
+M16.5, M16.6, M16.7, M17, and M18 are merged into `main`. Current
+package version is `0.25.0`; M18 (adaptive timestep for the
+transient runner, branch `dev/m18-adaptive-dt-transient`) shipped
+in v0.25.0 with schema additive minor bump v2.8.0 -> v2.9.0
+(`solver.adaptive` with `enabled`, `dt_min`, `dt_max`,
+`easy_iter_threshold`, `grow_factor`,
+`max_consecutive_failures`). M18 reuses
+`semi.continuation.AdaptiveStepController` (the same class that
+drives the bias_sweep voltage ramp) on the dt axis, adds
+variable-step BDF2 in `semi/timestepping.py`
+(`BDFCoefficients.variable_bdf2(omega)`; bit-identical to the
+uniform-step (3/2, -2, 1/2) triplet at omega = 1.0), and clamps
+dt at `t_end` and at every `voltage_t` waveform breakpoint
+(`step.t0` and every interior `table.times[i]`) so the integrator
+never straddles a slope change. Audit case 07
+(`tests/audit/test_07_adaptive_dt_vs_fixed_dt.py`) gates the
+adaptive run against the fixed-dt reference within 1 % on
+`benchmarks/pn_1d_turnon`. The
+`power_diode_reverse_recovery` example
+(`examples/power_diode_reverse_recovery/diode_recovery.json`)
+turns on `solver.adaptive` and retires the
+`allow-failure: "true"` carve-out it carried since PR #85; the
+`mosfet_2d` and `nmos_idvgs` `allow-failure: "true"` flags stay
+in place (those are bias_sweep SNES stabilization work, not
+transient work). Configs without `solver.adaptive` (or with
+`solver.adaptive.enabled: false`) are bit-identical to v0.24.0
+on every existing benchmark (pn_1d_bias anchor: J(V=0.6 V) =
+1.635e+03 A/m^2; the diode_velsat_1d, diode_auger_1d,
+diode_fermi_dirac_1d, schottky_1d, zener_1d, pn_1d_turnon,
+pn_1d_pulse, diode_sine_1d, rc_ac_sweep, and
+algaas_gaas_heterojunction anchors all continue to hold).
+M17 (heterojunction / position-dependent band structure, branch
+`dev/m17-heterojunction`) shipped in v0.24.0 with schema additive
+minor bump v2.7.0 -> v2.8.0 (`regions[].material_overrides` with
+`chi_eV`, `Eg_eV`, `Nc_per_cm3`, `Nv_per_cm3`;
+`regions[].heterojunction` boolean).
 ADR 0016 documents the heterojunction-aware Slotboom path:
 `n = n_i(x) exp((psi - phi_n) / V_t)` with `n_i(x)` a per-cell
 DG0 field; the continuity-flux shape is unchanged, ADR 0004 is
@@ -334,10 +364,25 @@ M15 through M18. Summary:
 
 ## Next task
 
-**M19 (3D MOSFET capstone)** on a fresh branch. The M16
-umbrella plus M17 (heterojunctions, shipped in v0.24.0) close the
-position-dependent material parameter expansion. M19 is the
-remaining roadmap capstone:
+The next-task pointer is between two unblocked candidates; the
+maintainer chooses. M18 (adaptive dt for the transient runner,
+shipped in v0.25.0) closed the transient half of the CI carve-out
+introduced in `ed6719b`. The bias_sweep half (`nmos_idvgs`)
+remains tagged `allow-failure: "true"` and is the natural
+follow-up to retire that flag.
+
+- **Bias-sweep SNES line-search stabilization (unblocks
+  `nmos_idvgs`).** The remaining half of the CI carve-out. The
+  V_GS sweep across the MOSFET inversion onset under Fermi-Dirac
+  statistics stagnates because the SNES default line search
+  (`bt`, backtracking) cannot find a descent direction at the
+  threshold. Candidate fixes: switch to PETSc `nleqerr` or `cp`
+  line search, add a damping schedule, or introduce a homotopy
+  parameter on the FD prefactor. ADR-level decision; reuses
+  `semi.continuation.AdaptiveStepController` along the V_GS axis
+  (already in place for forward-bias ramps; the issue is the SNES
+  inner solve, not the outer voltage step). Closing this retires
+  the last `allow-failure: "true"` carve-out beyond `mosfet_2d`.
 
 - **M19: 3D MOSFET capstone.** A 3D MOSFET on a gmsh-sourced
   unstructured mesh, exercising the M15 GPU linear-solver path
@@ -354,8 +399,8 @@ remaining roadmap capstone:
 Acceptance tests are documented in
 [`docs/IMPROVEMENT_GUIDE.md`](docs/IMPROVEMENT_GUIDE.md) § 4 and
 [`docs/ROADMAP.md`](docs/ROADMAP.md). The next reviewer authors a
-starter prompt against M19 in the same shape as
-`docs/M17_STARTER_PROMPT.md`.
+starter prompt against the chosen item in the same shape as
+`docs/M18_STARTER_PROMPT.md`.
 
 ## Backlog
 
@@ -502,6 +547,53 @@ None as of v0.17.0.
 
 Append-only. Newest entries on top.
 
+- **M18 adaptive timestep for the transient runner (2026-05-09):**
+  Branch `dev/m18-adaptive-dt-transient`, PR #88, six phase-letter
+  commits per `docs/M18_STARTER_PROMPT.md`. Schema additive minor
+  bump v2.8.0 -> v2.9.0 (`solver.adaptive` with `enabled`,
+  `dt_min`, `dt_max`, `easy_iter_threshold`, `grow_factor`,
+  `max_consecutive_failures`); package version 0.24.0 -> 0.25.0.
+  Closes the transient half of the CI carve-out introduced in
+  `ed6719b`. Reuses
+  `semi.continuation.AdaptiveStepController` (the same class that
+  drives the bias_sweep ramp) on the dt axis; adds variable-step
+  BDF2 in `semi/timestepping.py`
+  (`BDFCoefficients.variable_bdf2(omega)`, bit-identical to
+  uniform BDF2 at omega = 1.0); the time loop in
+  `semi/runners/transient.py` snapshots and restores the Slotboom
+  state on SNES non-convergence, halves dt, and retries; dt is
+  clamped at `t_end` and at every `voltage_t` waveform breakpoint
+  (`step.t0` and every interior `table.times[i]`). Audit case 07
+  (`tests/audit/test_07_adaptive_dt_vs_fixed_dt.py`) gates the
+  adaptive run against the shipped fixed-dt reference within 1 %
+  on `benchmarks/pn_1d_turnon` (subsamples adaptive onto fixed
+  grid via linear interpolation; uses `dt_max = solver.dt` so the
+  adaptive run is constrained to never exceed the fixed-dt
+  resolution, isolating the controller's halving response). The
+  `power_diode_reverse_recovery` example
+  (`examples/power_diode_reverse_recovery/diode_recovery.json`)
+  retires its `allow-failure: "true"` carve-out by enabling
+  `solver.adaptive` (`dt_min = 1 ps`, `dt_max = 5 ns`); the
+  controller halves dt across the +0.7 V to -2.0 V transition at
+  t = 50-60 ns and grows back during the settled reverse-blocking
+  tail. The `mosfet_2d` and `nmos_idvgs` `allow-failure: "true"`
+  flags are unchanged from v0.24.0 (those are bias_sweep SNES
+  stabilization work, not transient work). ADR 0017 documents the
+  controller choice and amends the "no adaptive dt" statement in
+  ADR 0010, scoped to the transient runner. M18 ships no MMS
+  variant (per ADR 0006: the per-physics-module rule applies to
+  new physics kernels; M18 is a runner-driver change with audit-
+  only V&V via case 07; same precedent as M16.7). Coverage gate
+  at 95 holds without a follow-up commit thanks to the unit tests
+  in `tests/test_adaptive_dt_schema.py`,
+  `tests/test_variable_bdf2.py`, and
+  `tests/fem/test_adaptive_dt_transient.py` covering every
+  controller transition (grow on consecutive easy solves, halve
+  on SNES failure, floor exhaustion via `StepTooSmall`, endpoint
+  clamp at `t_end`, breakpoint clamp at `voltage_t.step.t0`,
+  breakpoint clamp at interior `voltage_t.table.times[i]`,
+  bit-identity on the `enabled: false` branch, variable-step BDF2
+  coefficients flowing through the runner).
 - **M16.7 transient time-varying contact voltage (2026-05-06):**
   Branch `dev/m16.7-transient-ac`, PR #84, six phase-letter
   commits per `docs/M16_7_STARTER_PROMPT.md`. Schema additive

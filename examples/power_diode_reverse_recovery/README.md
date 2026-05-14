@@ -39,10 +39,48 @@ the Auger correctness gate see
   trims the high-injection tail of the forward conduction
   carrier density.
 - **Backward-Euler / BDF2 transient.** `solver.type = "transient"`,
-  `dt = 1 ns`, `t_end = 200 ns`, BDF2 (`order = 2`).
+  `dt = 1 ns` (initial), `t_end = 200 ns`, BDF2 (`order = 2`).
   `bc_ramp_steps = 20` ramps the +0.7 V initial-condition bias
   through 20 steady-state continuation steps before the time loop
   starts.
+- **M18 adaptive dt.** `solver.adaptive.enabled = true`. The
+  controller in `semi/continuation.py` (the same class the bias-
+  sweep ramp uses) drives dt between `dt_min = 1 ps` and
+  `dt_max = 5 ns`, halving on SNES failure and growing on
+  consecutive easy SNES solves. dt is also clamped at every
+  `voltage_t.table.times[i]` breakpoint so the integrator never
+  straddles a slope change. See
+  [docs/M18_STARTER_PROMPT.md](../../docs/M18_STARTER_PROMPT.md)
+  and [docs/adr/0017-adaptive-transient-dt.md](../../docs/adr/0017-adaptive-transient-dt.md)
+  for the controller design and the rationale.
+
+## How adaptive dt is used
+
+The `voltage_t.table` waveform has 49 sample points; the largest
+slope changes are at t = 50 ns (start of the +0.7 V to -2.0 V
+ramp) and t = 60 ns (end of the ramp into reverse blocking). With
+fixed `dt = 1 ns` (the v0.24.0 setting), the BDF2 step at the
+ramp boundary mixes a forward-conduction history with a sharp
+reverse-bias BC update; SNES stagnates at the second or third
+post-transition step because the linearization point is far from
+the new operating regime. M18 fixes this in two ways:
+
+1. **Breakpoint clamping.** The runner pre-computes the sorted
+   list of interior `times[i]` from the table and clamps each
+   step's dt so it lands exactly on the next breakpoint. The
+   integrator never straddles a slope change.
+2. **Halve on failure.** Across the t = 50 ns to t = 60 ns
+   transition the controller is expected to halve dt down to the
+   ~50 ps neighborhood (the exact floor depends on the SNES rtol
+   / atol setting and how aggressively the ramp turns the
+   minority-carrier population around). After the settled
+   reverse-blocking tail begins (roughly t > 100 ns) the
+   controller grows dt back toward `dt_max = 5 ns` over a handful
+   of steps.
+
+The `solver.max_steps = 2000` cap accounts for the smaller dt
+during the transition; the v0.24.0 cap (250) was sized for fixed
+dt = 1 ns and would exhaust during the halving window.
 
 ## How to run
 

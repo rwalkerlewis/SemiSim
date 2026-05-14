@@ -58,9 +58,10 @@ def test_supported_minor_resets_for_v2():
     BBT and TAT tunneling dispatch); M16.7 bumped it to 7 (v2.7.0
     transient time-varying contact voltage); M17 bumped it to 8
     (v2.8.0 heterojunction / position-dependent material parameters);
-    the M14.3 reset semantics survive (no major bump means no
-    minor reset)."""
-    assert schema.SCHEMA_SUPPORTED_MINOR == 8
+    M18 bumped it to 9 (v2.9.0 adaptive time-step controller for the
+    transient runner); the M14.3 reset semantics survive (no major
+    bump means no minor reset)."""
+    assert schema.SCHEMA_SUPPORTED_MINOR == 9
 
 
 def test_schema_version_140_accepted_with_deprecation(minimal_cfg):

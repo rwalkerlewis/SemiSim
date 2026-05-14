@@ -1,5 +1,5 @@
 """
-Transient drift-diffusion runner (BDF1 / BDF2) — Slotboom form.
+Transient drift-diffusion runner (BDF1 / BDF2) -- Slotboom form.
 
 Solves the coupled `(psi, phi_n, phi_p)` system in **Slotboom form**
 with backward differentiation formula (BDF) time integration. Carrier
@@ -18,9 +18,26 @@ See `docs/adr/0014-slotboom-transient.md`. ADR 0014 supersedes ADR 0009.
 Time integration
 ----------------
 BDF order is configurable (1 = backward Euler, 2 = BDF2). For BDF2, a
-single BDF1 step seeds the two-level history before switching. Fixed
-timestep `dt` is used throughout (no adaptive time stepping in M13).
-See `docs/adr/0010-bdf-time-integration.md`.
+single BDF1 step seeds the two-level history before switching.
+
+Two dt regimes are supported:
+
+  - Fixed-dt (default; `solver.adaptive` absent or
+    `solver.adaptive.enabled: false`). Uses uniform-step BDF
+    coefficients from `_SUPPORTED_COEFFS`; bit-identical to v0.24.0.
+  - Adaptive-dt (M18; `solver.adaptive.enabled: true`). Drives dt with
+    an `AdaptiveStepController` (`semi/continuation.py`, the same
+    class the bias-sweep ramp uses) that grows on consecutive easy
+    SNES solves and halves on SNES non-convergence. The first step is
+    always BDF1 (history seeding); BDF2 takes over once two history
+    points exist, using `BDFCoefficients.variable_bdf2(omega)` per
+    step where `omega = dt_n / dt_{n-1}`. dt is clamped at `t_end`
+    and at every `voltage_t` waveform breakpoint
+    (`step.t0` and every interior `table.times[i]`) so the integrator
+    never straddles a slope change.
+
+See `docs/adr/0010-bdf-time-integration.md` (BDF) and
+`docs/adr/0017-adaptive-transient-dt.md` (adaptive controller, M18).
 
 The time term applies BDF directly to the carrier *densities*
 `n_ufl = n_i exp(psi - phi_n)` and `p_ufl = n_i exp(phi_p - psi)`.
@@ -166,6 +183,27 @@ def run_transient(
 
     bdf = BDFCoefficients(order)
     alpha_0 = bdf.coeffs[0]
+
+    # ------------------------------------------------------------------
+    # Adaptive-dt parse (M18). Absent or disabled routes to the fixed-dt
+    # path that is bit-identical to v0.24.0.
+    # ------------------------------------------------------------------
+    adaptive_cfg = solver_cfg.get("adaptive") or {}
+    adaptive_enabled = bool(adaptive_cfg.get("enabled", False))
+    if adaptive_enabled:
+        dt_min_a = float(adaptive_cfg["dt_min"])
+        dt_max_a = float(adaptive_cfg["dt_max"])
+        easy_iter_threshold_a = int(adaptive_cfg.get("easy_iter_threshold", 4))
+        grow_factor_a = float(adaptive_cfg.get("grow_factor", 1.5))
+        max_consecutive_failures_a = int(
+            adaptive_cfg.get("max_consecutive_failures", 6)
+        )
+    else:
+        dt_min_a = 0.0
+        dt_max_a = 0.0
+        easy_iter_threshold_a = 4
+        grow_factor_a = 1.5
+        max_consecutive_failures_a = 6
 
     # SNES tolerances. Defaults match `run_bias_sweep` (ADR 0008): the
     # Slotboom transient residual has the same scaling as the steady-
@@ -461,105 +499,312 @@ def run_transient(
 
     bdf1 = BDFCoefficients(1)
 
-    while t_current < t_end - 0.5 * dt_val and step_count < max_steps:
-        t_next = t_current + dt_val
-        step_count += 1
+    # ------------------------------------------------------------------
+    # M18: collect waveform breakpoints once. dt is clamped to land
+    # exactly on each `voltage_t.step.t0` and every interior
+    # `voltage_t.table.times[i]` in the adaptive path so the integrator
+    # never straddles a slope change. The fixed-dt path ignores this
+    # list and steps uniformly as before.
+    # ------------------------------------------------------------------
+    waveform_breakpoints: list[float] = []
+    for c_brk in cfg.get("contacts", []):
+        if c_brk.get("type") != "ohmic":
+            continue
+        vt_brk = c_brk.get("voltage_t")
+        if vt_brk is None:
+            continue
+        kind_brk = vt_brk.get("type")
+        if kind_brk == "step":
+            t0_brk = float(vt_brk["t0"])
+            if t0_brk > 0.0:
+                waveform_breakpoints.append(t0_brk)
+        elif kind_brk == "table":
+            for ti in vt_brk["times"]:
+                ti_f = float(ti)
+                if ti_f > 0.0:
+                    waveform_breakpoints.append(ti_f)
+    waveform_breakpoints = sorted(set(waveform_breakpoints))
 
-        # Decide which BDF order to use this step (BDF1 seeds BDF2 history)
-        if order == 2 and len(n_hist) >= 2:
-            effective_order = 2
-            use_bdf = bdf
-        else:
-            effective_order = 1
-            use_bdf = bdf1
+    if not adaptive_enabled:
+        # ----------------------------------------------------------------
+        # Fixed-dt branch (default). Bit-identical to v0.24.0; no
+        # behavior change from M17.
+        # ----------------------------------------------------------------
+        while t_current < t_end - 0.5 * dt_val and step_count < max_steps:
+            t_next = t_current + dt_val
+            step_count += 1
 
-        alpha_k_use = use_bdf.coeffs[0]
-        alpha0_const.value = PETSc.ScalarType(alpha_k_use)
+            # Decide which BDF order to use this step (BDF1 seeds BDF2 history)
+            if order == 2 and len(n_hist) >= 2:
+                effective_order = 2
+                use_bdf = bdf
+            else:
+                effective_order = 1
+                use_bdf = bdf1
 
-        # Update history source functions:
-        #   f_hist_n[i] = sum_{k=1}^K alpha_k * n^{n+1-k}[i]
-        # Stored on the Function (no /dt here -- the residual already
-        # divides by dt_const through the alpha0/dt prefactor; we keep
-        # the symmetry by absorbing alpha_k coefficients here and the
-        # /dt in the residual form).
-        hist_n_arr = np.zeros(len(n_hist[-1]))
-        hist_p_arr = np.zeros(len(p_hist[-1]))
-        for k in range(1, effective_order + 1):
-            idx = -k  # n_hist[-1] = n^n (most recent), n_hist[-2] = n^{n-1}
-            hist_n_arr += use_bdf.coeffs[k] * n_hist[idx]
-            hist_p_arr += use_bdf.coeffs[k] * p_hist[idx]
-        f_hist_n.x.array[:] = hist_n_arr
-        f_hist_p.x.array[:] = hist_p_arr
-        f_hist_n.x.scatter_forward()
-        f_hist_p.x.scatter_forward()
+            alpha_k_use = use_bdf.coeffs[0]
+            alpha0_const.value = PETSc.ScalarType(alpha_k_use)
 
-        # Build BCs (Slotboom Shockley boundary) and seed unknowns
-        # with the BC values at the contacts (so SNES starts close to
-        # the solution at each step). For contacts without
-        # `voltage_t`, `voltages_at_t(t_next)` returns the fixed
-        # `voltage` value at every step (bit-identical to v0.22.0).
-        bcs = _build_transient_bcs(voltages_at_t(t_next))
-        _apply_bc_values(bcs)
+            # Update history source functions:
+            #   f_hist_n[i] = sum_{k=1}^K alpha_k * n^{n+1-k}[i]
+            # Stored on the Function (no /dt here -- the residual already
+            # divides by dt_const through the alpha0/dt prefactor; we keep
+            # the symmetry by absorbing alpha_k coefficients here and the
+            # /dt in the residual form).
+            hist_n_arr = np.zeros(len(n_hist[-1]))
+            hist_p_arr = np.zeros(len(p_hist[-1]))
+            for k in range(1, effective_order + 1):
+                idx = -k  # n_hist[-1] = n^n (most recent), n_hist[-2] = n^{n-1}
+                hist_n_arr += use_bdf.coeffs[k] * n_hist[idx]
+                hist_p_arr += use_bdf.coeffs[k] * p_hist[idx]
+            f_hist_n.x.array[:] = hist_n_arr
+            f_hist_p.x.array[:] = hist_p_arr
+            f_hist_n.x.scatter_forward()
+            f_hist_p.x.scatter_forward()
 
-        tag = fmt_tag(t_next)
-        # `fmt_tag` rounds to 4 decimal places (sub-microvolt
-        # resolution); for time tags at sub-nanosecond `t_next` it
-        # collapses adjacent steps to the same string. Disambiguate
-        # by appending the step counter so the PETSc options database
-        # gets a fresh prefix per solve and MUMPS does not reuse
-        # cached symbolic-factor state across steps.
-        info = solve_nonlinear_block(
-            F_list, [psi, phi_n, phi_p], bcs,
-            prefix=f"{cfg['name']}_tr_{tag}_s{step_count}_",
-            petsc_options=snes_petsc_options,
-            jacobian_shift=transient_jacobian_shift,
-            cfg=cfg,
-        )
+            # Build BCs (Slotboom Shockley boundary) and seed unknowns
+            # with the BC values at the contacts (so SNES starts close to
+            # the solution at each step). For contacts without
+            # `voltage_t`, `voltages_at_t(t_next)` returns the fixed
+            # `voltage` value at every step (bit-identical to v0.22.0).
+            bcs = _build_transient_bcs(voltages_at_t(t_next))
+            _apply_bc_values(bcs)
 
-        if not info["converged"]:
-            raise RuntimeError(
-                f"Transient SNES failed at t={t_next:.3e} s "
-                f"(step {step_count}); reason={info['reason']}"
+            tag = fmt_tag(t_next)
+            # `fmt_tag` rounds to 4 decimal places (sub-microvolt
+            # resolution); for time tags at sub-nanosecond `t_next` it
+            # collapses adjacent steps to the same string. Disambiguate
+            # by appending the step counter so the PETSc options database
+            # gets a fresh prefix per solve and MUMPS does not reuse
+            # cached symbolic-factor state across steps.
+            info = solve_nonlinear_block(
+                F_list, [psi, phi_n, phi_p], bcs,
+                prefix=f"{cfg['name']}_tr_{tag}_s{step_count}_",
+                petsc_options=snes_petsc_options,
+                jacobian_shift=transient_jacobian_shift,
+                cfg=cfg,
             )
 
-        # Append converged carrier densities to history
-        n_new, p_new = _eval_n_p()
-        n_hist.append(n_new)
-        p_hist.append(p_new)
-        _trim_history()
+            if not info["converged"]:
+                raise RuntimeError(
+                    f"Transient SNES failed at t={t_next:.3e} s "
+                    f"(step {step_count}); reason={info['reason']}"
+                )
 
-        t_current = t_next
-        n_steps_taken += 1
+            # Append converged carrier densities to history
+            n_new, p_new = _eval_n_p()
+            n_hist.append(n_new)
+            p_hist.append(p_new)
+            _trim_history()
 
-        # Record IV
-        _record_all_iv(t_current, iv_rows)
-        t_vals.append(t_current)
+            t_current = t_next
+            n_steps_taken += 1
 
-        # Snapshots
-        if step_count % output_every == 0 or abs(t_current - t_end) < 0.5 * dt_val:
-            n_phys = n_new * sc.C0
-            p_phys = p_new * sc.C0
-            fields_out["psi"].append(psi.x.array.copy() * sc.V0)
-            fields_out["n"].append(n_phys)
-            fields_out["p"].append(p_phys)
-            # ADR 0014 (Limitations subsection): expose Slotboom
-            # primary unknowns so MMS rate tests can compare primary
-            # unknowns directly rather than the derived (n, p) pair.
-            # The internal representation in `phi_n.x.array` is the
-            # dimensionless quasi-Fermi potential in scaled units;
-            # we multiply by sc.V0 here so the stored snapshot is
-            # in volts (matching `psi` above).
-            fields_out["phi_n"].append(phi_n.x.array.copy() * sc.V0)
-            fields_out["phi_p"].append(phi_p.x.array.copy() * sc.V0)
-            snap_t.append(t_current)
+            # Record IV
+            _record_all_iv(t_current, iv_rows)
+            t_vals.append(t_current)
 
-        if progress_callback is not None:
-            progress_callback({
-                "type": "step_done",
-                "step": step_count,
-                "t": float(t_current),
-                "iterations": int(info.get("iterations", 0)),
-            })
+            # Snapshots
+            if step_count % output_every == 0 or abs(t_current - t_end) < 0.5 * dt_val:
+                n_phys = n_new * sc.C0
+                p_phys = p_new * sc.C0
+                fields_out["psi"].append(psi.x.array.copy() * sc.V0)
+                fields_out["n"].append(n_phys)
+                fields_out["p"].append(p_phys)
+                # ADR 0014 (Limitations subsection): expose Slotboom
+                # primary unknowns so MMS rate tests can compare primary
+                # unknowns directly rather than the derived (n, p) pair.
+                # The internal representation in `phi_n.x.array` is the
+                # dimensionless quasi-Fermi potential in scaled units;
+                # we multiply by sc.V0 here so the stored snapshot is
+                # in volts (matching `psi` above).
+                fields_out["phi_n"].append(phi_n.x.array.copy() * sc.V0)
+                fields_out["phi_p"].append(phi_p.x.array.copy() * sc.V0)
+                snap_t.append(t_current)
+
+            if progress_callback is not None:
+                progress_callback({
+                    "type": "step_done",
+                    "step": step_count,
+                    "t": float(t_current),
+                    "iterations": int(info.get("iterations", 0)),
+                })
+
+        n_failed_steps_total = 0
+    else:
+        # ----------------------------------------------------------------
+        # Adaptive-dt branch (M18). Drives dt with an
+        # AdaptiveStepController; on SNES failure, restores the Slotboom
+        # state and halves dt; on consecutive easy SNES solves, grows dt.
+        # dt is clamped at t_end and at every voltage_t breakpoint so the
+        # integrator never straddles a slope change.
+        # ----------------------------------------------------------------
+        from ..continuation import AdaptiveStepController, StepTooSmall
+
+        controller = AdaptiveStepController(
+            initial_step=dt_val,
+            max_step_abs=dt_max_a,
+            min_step_abs=dt_min_a,
+            easy_iter_threshold=easy_iter_threshold_a,
+            grow_factor=grow_factor_a,
+        )
+
+        dt_prev: float | None = None
+        consecutive_failures = 0
+        n_failed_steps_total = 0
+        total_attempts = 0
+
+        # Loop guard: stop when the next step would be a no-op (less than
+        # half a dt_min from t_end). This is the adaptive-mode analogue
+        # of `t_current < t_end - 0.5 * dt_val`.
+        while (
+            t_current < t_end - 0.5 * dt_min_a
+            and step_count < max_steps
+        ):
+            total_attempts += 1
+            dt_current = controller.step
+
+            # Endpoint clamp 1: t_end. The clamp does not feed back into
+            # the controller (the next step would be past t_end anyway).
+            clamped = False
+            if t_current + dt_current > t_end:
+                dt_current = t_end - t_current
+                clamped = True
+
+            # Endpoint clamp 2: voltage_t waveform breakpoints. Land on
+            # the next breakpoint exactly so the BC build sees the post-
+            # transition value. The clamp does not feed back into the
+            # controller.
+            for bp in waveform_breakpoints:
+                if bp <= t_current + 1.0e-15:
+                    continue
+                if bp <= t_current + dt_current + 1.0e-15:
+                    dt_current = bp - t_current
+                    clamped = True
+                    break  # breakpoints are sorted; first hit is closest
+
+            t_next = t_current + dt_current
+
+            # BDF order selection. The first step is always BDF1
+            # (history seeding); BDF2 takes over once two history
+            # points exist.
+            if order == 2 and len(n_hist) >= 2 and dt_prev is not None:
+                effective_order = 2
+                omega = dt_current / dt_prev
+                a0, a1, a2 = BDFCoefficients.variable_bdf2(omega)
+                step_coeffs = (a0, a1, a2)
+            else:
+                effective_order = 1
+                omega = 1.0  # informational only
+                step_coeffs = (1.0, -1.0)
+
+            alpha0_const.value = PETSc.ScalarType(step_coeffs[0])
+            dt_const.value = PETSc.ScalarType(dt_current / sc.t0)
+
+            hist_n_arr = np.zeros(len(n_hist[-1]))
+            hist_p_arr = np.zeros(len(p_hist[-1]))
+            for k in range(1, effective_order + 1):
+                idx = -k
+                hist_n_arr += step_coeffs[k] * n_hist[idx]
+                hist_p_arr += step_coeffs[k] * p_hist[idx]
+            f_hist_n.x.array[:] = hist_n_arr
+            f_hist_p.x.array[:] = hist_p_arr
+            f_hist_n.x.scatter_forward()
+            f_hist_p.x.scatter_forward()
+
+            # Snapshot Slotboom state before the BC seed and SNES solve.
+            # On failure we restore so the retry sees the same starting
+            # point (modulo the smaller dt). History is appended only on
+            # success, so it does not need to be rolled back.
+            psi_snap = psi.x.array.copy()
+            phi_n_snap = phi_n.x.array.copy()
+            phi_p_snap = phi_p.x.array.copy()
+
+            bcs = _build_transient_bcs(voltages_at_t(t_next))
+            _apply_bc_values(bcs)
+
+            tag = fmt_tag(t_next)
+            try:
+                info = solve_nonlinear_block(
+                    F_list, [psi, phi_n, phi_p], bcs,
+                    prefix=f"{cfg['name']}_tr_{tag}_a{total_attempts}_",
+                    petsc_options=snes_petsc_options,
+                    jacobian_shift=transient_jacobian_shift,
+                    cfg=cfg,
+                )
+                converged = bool(info.get("converged", False))
+            except Exception:  # noqa: BLE001
+                converged = False
+                info = {"converged": False, "iterations": -1, "reason": -99}
+
+            if not converged:
+                # Restore state and halve dt.
+                psi.x.array[:] = psi_snap
+                phi_n.x.array[:] = phi_n_snap
+                phi_p.x.array[:] = phi_p_snap
+                psi.x.scatter_forward()
+                phi_n.x.scatter_forward()
+                phi_p.x.scatter_forward()
+
+                consecutive_failures += 1
+                n_failed_steps_total += 1
+                try:
+                    controller.on_failure()
+                except StepTooSmall as exc:
+                    raise RuntimeError(
+                        f"Adaptive transient stalled at t="
+                        f"{t_current:.3e} s (dt_min={dt_min_a:.3e} reached)"
+                    ) from exc
+                if consecutive_failures > max_consecutive_failures_a:
+                    raise RuntimeError(
+                        f"Adaptive transient stalled at t="
+                        f"{t_current:.3e} s after "
+                        f"{consecutive_failures} consecutive halvings"
+                    )
+                continue
+
+            # Success: append history, advance, reset failure counter.
+            n_new, p_new = _eval_n_p()
+            n_hist.append(n_new)
+            p_hist.append(p_new)
+            _trim_history()
+
+            t_current = t_next
+            dt_prev = dt_current
+            step_count += 1
+            n_steps_taken += 1
+            consecutive_failures = 0
+
+            if not clamped:
+                controller.on_success(int(info.get("iterations", 0)))
+
+            _record_all_iv(t_current, iv_rows)
+            t_vals.append(t_current)
+
+            if (
+                step_count % output_every == 0
+                or abs(t_current - t_end) < 0.5 * dt_min_a
+            ):
+                n_phys = n_new * sc.C0
+                p_phys = p_new * sc.C0
+                fields_out["psi"].append(psi.x.array.copy() * sc.V0)
+                fields_out["n"].append(n_phys)
+                fields_out["p"].append(p_phys)
+                fields_out["phi_n"].append(phi_n.x.array.copy() * sc.V0)
+                fields_out["phi_p"].append(phi_p.x.array.copy() * sc.V0)
+                snap_t.append(t_current)
+
+            if progress_callback is not None:
+                progress_callback({
+                    "type": "step_done",
+                    "step": step_count,
+                    "t": float(t_current),
+                    "iterations": int(info.get("iterations", 0)),
+                    "dt": float(dt_current),
+                    "alpha_coeffs": tuple(step_coeffs),
+                    "omega": float(omega),
+                    "clamped": bool(clamped),
+                })
 
     x_dof = V_psi.tabulate_dof_coordinates()
 
@@ -571,8 +816,9 @@ def run_transient(
             "order": order,
             "dt": dt_val,
             "n_steps_taken": n_steps_taken,
-            "n_failed_steps": 0,
+            "n_failed_steps": int(n_failed_steps_total),
             "snap_t": snap_t,
+            "adaptive_enabled": bool(adaptive_enabled),
         },
         x_dof=x_dof,
     )

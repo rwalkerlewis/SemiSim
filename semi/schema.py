@@ -158,7 +158,18 @@ ENGINE_SUPPORTED_SCHEMA_MAJOR = max(ENGINE_SUPPORTED_SCHEMA_MAJORS)
 #                material_overrides and without heterojunction:true are
 #                bit-identical to v0.23.0 (the DG0 fields collapse to
 #                the scalar single-material values).
-SCHEMA_SUPPORTED_MINOR = 8
+#   M18 (2.9.0): added solver.adaptive (optional sub-object with
+#                enabled, dt_min, dt_max, easy_iter_threshold,
+#                grow_factor, max_consecutive_failures) for the
+#                transient runner. When enabled is true the runner
+#                drives dt via an AdaptiveStepController; when false
+#                (or the block is absent) the existing fixed-dt path
+#                is used and behavior is bit-identical to v0.24.0.
+#                Non-transient solver types reject the field at
+#                validate time so users see the failure before the FEM
+#                path. v2.0.0 through v2.8.0 inputs continue to
+#                validate.
+SCHEMA_SUPPORTED_MINOR = 9
 
 
 @lru_cache(maxsize=8)
@@ -486,6 +497,63 @@ def _validate_voltage_t(cfg: dict[str, Any]) -> None:
             )
 
 
+def _validate_adaptive_dt(cfg: dict[str, Any]) -> None:
+    """
+    Cross-field validation for `solver.adaptive` (M18).
+
+    The JSON schema declares the per-field ranges; constraints that
+    cross fields:
+
+      - Setting `solver.adaptive` on a non-transient solver type is
+        rejected at validate time (matches the M16.7 voltage_t and
+        M16.5 schottky cross-field patterns).
+      - When `enabled` is true, both `dt_min` and `dt_max` are
+        required, both must be positive, and `dt_min <= solver.dt <=
+        dt_max` so the initial dt sits inside the controller range.
+      - When `enabled` is false (or the block is absent), the rest of
+        the keys are advisory; the transient runner takes the fixed-
+        dt path.
+    """
+    solver = cfg.get("solver", {})
+    adaptive = solver.get("adaptive")
+    if adaptive is None:
+        return
+    solver_type = solver.get("type", "equilibrium")
+    if solver_type != "transient":
+        raise SchemaError(
+            f"solver.adaptive is only consumed by the transient runner "
+            f"(solver.type='transient'); got solver.type={solver_type!r}. "
+            f"Remove the adaptive block or change solver.type (M18)."
+        )
+    if not adaptive.get("enabled", False):
+        return
+    if "dt_min" not in adaptive:
+        raise SchemaError(
+            "solver.adaptive.enabled is true; solver.adaptive.dt_min is required (M18)."
+        )
+    if "dt_max" not in adaptive:
+        raise SchemaError(
+            "solver.adaptive.enabled is true; solver.adaptive.dt_max is required (M18)."
+        )
+    dt_min = float(adaptive["dt_min"])
+    dt_max = float(adaptive["dt_max"])
+    if dt_min > dt_max:
+        raise SchemaError(
+            f"solver.adaptive.dt_min ({dt_min:g}) must not exceed "
+            f"solver.adaptive.dt_max ({dt_max:g}) (M18)."
+        )
+    dt_init = solver.get("dt")
+    if dt_init is not None:
+        dt_init_f = float(dt_init)
+        if dt_init_f < dt_min or dt_init_f > dt_max:
+            raise SchemaError(
+                f"solver.dt ({dt_init_f:g}) must satisfy "
+                f"solver.adaptive.dt_min ({dt_min:g}) <= solver.dt <= "
+                f"solver.adaptive.dt_max ({dt_max:g}) so the initial dt "
+                f"sits inside the adaptive controller range (M18)."
+            )
+
+
 _TUNNELING_DEFAULTS: dict[str, Any] = {
     "bbt": False,
     "tat": False,
@@ -612,6 +680,7 @@ def _fill_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
 
     _validate_compute(cfg)
     _validate_voltage_t(cfg)
+    _validate_adaptive_dt(cfg)
 
     out = cfg.setdefault("output", {})
     out.setdefault("directory", "./results")

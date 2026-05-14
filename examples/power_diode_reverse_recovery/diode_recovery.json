@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.7.0",
+  "schema_version": "2.9.0",
   "name": "power_diode_reverse_recovery",
   "description": "Practical power-rectifier diode reverse-recovery transient. 1D long-base pn diode (N_A = 1e15 cm^-3 p-side, N_D = 5e15 cm^-3 n-side, 100 um total, 800 cells, tau = 100 ns). M16.7 voltage_t.table on the anode drives a forward-conduction segment at +0.7 V (t in [0, 50] ns), a 10 ns linear ramp from +0.7 V to -2.0 V (t in [50, 60] ns), and a reverse-blocking segment at -2.0 V (t in [60, 200] ns). M16.3 Auger plus default SRH active. The smoke verifier asserts I(t) finite, forward conduction positive in the pre-transition window, reverse-recovery dip negative in the post-transition window, and final-time current settling toward reverse-blocking (closer to zero than the recovery minimum). 200 timesteps at dt = 1 ns.",
   "dimension": 1,
@@ -98,7 +98,7 @@
     "t_end": 2.0e-07,
     "dt": 1.0e-09,
     "order": 2,
-    "max_steps": 250,
+    "max_steps": 2000,
     "output_every": 1,
     "bc_ramp_steps": 20,
     "snes": {
@@ -106,6 +106,14 @@
       "atol": 1.0e-08,
       "stol": 1.0e-14,
       "max_it": 100
+    },
+    "adaptive": {
+      "enabled": true,
+      "dt_min": 1.0e-12,
+      "dt_max": 5.0e-09,
+      "easy_iter_threshold": 4,
+      "grow_factor": 1.5,
+      "max_consecutive_failures": 12
     }
   },
   "output": {

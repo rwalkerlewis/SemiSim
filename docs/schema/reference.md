@@ -26,8 +26,8 @@ the full annotated source of truth is the JSON file.
   contact / mesh / solver fields fail validation rather than being
   silently dropped).
 - Minor/patch skew is accepted silently within a major.
-- Current schema version: **2.8.0** (M17 heterojunction /
-  position-dependent material parameters); v2.0.0 through v2.7.0
+- Current schema version: **2.9.0** (M18 adaptive time-step
+  controller for the transient runner); v2.0.0 through v2.8.0
   inputs continue to validate (additive minors).
 
 Schemas are published to
@@ -123,6 +123,22 @@ History:
   bit-identical to v0.23.0 (the DG0 fields collapse to the
   scalar single-material values). v2.0.0 through v2.7.0 inputs
   continue to validate.
+- **2.9.0** (M18): additive adaptive time-step controller
+  `solver.adaptive` for the transient runner (M18). Adds the
+  `solver.adaptive` sub-object with `enabled`, `dt_min`, `dt_max`,
+  `easy_iter_threshold`, `grow_factor`, and
+  `max_consecutive_failures`. When `enabled: true`, dt is set per
+  step by an `AdaptiveStepController` (`semi/continuation.py`,
+  reused unchanged from the bias-sweep ramp) that grows on
+  consecutive easy SNES solves and halves on SNES non-convergence;
+  the runner also clamps dt at `t_end` and at every `voltage_t`
+  waveform breakpoint (`step.t0` and every interior
+  `table.times[i]`). When the block is absent or
+  `enabled: false`, the runner uses the existing fixed-dt path and
+  is bit-identical to v0.24.0. The bias_sweep, ac_sweep,
+  equilibrium, mos_cv, mos_cap_ac, and resistor_3d runners reject
+  `solver.adaptive` at validate time. v2.0.0 through v2.8.0
+  inputs continue to validate.
 
 ## Top-level fields
 

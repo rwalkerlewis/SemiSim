@@ -66,3 +66,11 @@ CSV: `/tmp/audit/06_transient_fft_vs_ac_sweep.csv`
 
 ---
 
+## Case 07 - adaptive dt vs fixed dt (M18)
+
+On `benchmarks/pn_1d_turnon` the adaptive-dt transient run (M18; `solver.adaptive.enabled = true` with `dt_max = solver.dt` so the controller can only halve, not exceed the fixed-dt resolution) matches the shipped fixed-dt reference within the 1 % audit gate. Worst-case relative disagreement on I(t) is 0.00e+00 at t = 0.000e+00 s (see `/tmp/audit/07_adaptive_dt_vs_fixed_dt.csv`). The adaptive run took 750 accepted steps (0 failed and halved); the fixed-dt run took 750 steps. The variable-step BDF2 path used when dt halves comes from `BDFCoefficients.variable_bdf2(omega)` and is bit-identical to uniform BDF2 at omega = 1.
+
+CSV: `/tmp/audit/07_adaptive_dt_vs_fixed_dt.csv`
+
+
+---

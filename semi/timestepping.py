@@ -3,7 +3,8 @@ BDF (backward differentiation formula) time-stepping coefficients.
 
 Pure-Python, no dolfinx at module scope. Provides:
 
-    BDFCoefficients(order)  -- coefficient class for BDF1 and BDF2
+    BDFCoefficients(order)            -- uniform-step BDF1 / BDF2
+    BDFCoefficients.variable_bdf2(omega) -- variable-step BDF2 (M18)
 
 Design:
     order=1  (backward Euler / BDF1): coeffs = (1, -1)
@@ -19,6 +20,13 @@ are the previous (known) values stored in `u_history`.
 The :meth:`apply` method evaluates this sum given a list of PAST values
 (not including the current unknown). The caller is responsible for adding
 the alpha_0/dt contribution of the current unknown to the UFL residual.
+
+For variable-step BDF2 (M18), the coefficients depend on the dt ratio
+omega = dt_n / dt_{n-1}. The classmethod :meth:`variable_bdf2` returns
+the (alpha_0, alpha_1, alpha_2) triplet for a given omega; at omega = 1.0
+it reduces to the uniform-step values (3/2, -2, 1/2) bit-identically.
+The adaptive-dt path in `semi/runners/transient.py` consumes these
+coefficients per step.
 """
 from __future__ import annotations
 
@@ -63,6 +71,50 @@ class BDFCoefficients:
             )
         self.order: int = order
         self.coeffs: tuple[float, ...] = self._SUPPORTED_COEFFS[order]
+
+    @classmethod
+    def variable_bdf2(cls, omega: float) -> tuple[float, float, float]:
+        """
+        Variable-step BDF2 coefficients at dt ratio ``omega = dt_n / dt_{n-1}``.
+
+        Parameters
+        ----------
+        omega : float
+            Ratio of the current step to the previous step. Must be
+            strictly positive.
+
+        Returns
+        -------
+        (alpha_0, alpha_1, alpha_2) : tuple of float
+            The three coefficients of the BDF2 stencil at non-uniform
+            spacing:
+
+                alpha_0 = (1 + 2*omega) / (1 + omega)
+                alpha_1 = -(1 + omega)
+                alpha_2 = omega**2 / (1 + omega)
+
+            The discrete time derivative at t_{n+1} is
+            ``(alpha_0 * u_{n+1} + alpha_1 * u_n + alpha_2 * u_{n-1}) / dt_n``.
+
+        Notes
+        -----
+        - At ``omega == 1.0`` the triplet collapses to ``(1.5, -2.0, 0.5)``,
+          bit-identical to the uniform-step BDF2 values stored in
+          ``_SUPPORTED_COEFFS[2]``. This is the bit-identity hinge for the
+          adaptive-dt path: when the controller does not change dt across
+          two consecutive steps, the variable-step branch produces the same
+          coefficients the uniform-step branch always produced.
+        - ``alpha_0 + alpha_1 + alpha_2 == 0`` (constant-in-time exactness).
+        - ``alpha_0 - alpha_2 / omega == 1`` (linear-in-time exactness;
+          this is the standard non-uniform-BDF2 derivation check).
+        """
+        if omega <= 0.0:
+            raise ValueError(f"omega must be strictly positive; got {omega!r}")
+        denom = 1.0 + omega
+        alpha_0 = (1.0 + 2.0 * omega) / denom
+        alpha_1 = -(1.0 + omega)
+        alpha_2 = (omega * omega) / denom
+        return (alpha_0, alpha_1, alpha_2)
 
     def apply(self, u_history: list, dt: float) -> np.ndarray:
         """

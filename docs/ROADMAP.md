@@ -5,12 +5,14 @@ kronos-semi is a FEniCSx-based finite-element semiconductor device simulator tha
 ## Capability matrix
 
 All milestones M1 through M15 plus M14.3, M14.4, M16.1 through
-M16.7 have shipped as of v0.23.0; M17 (heterojunction /
-position-dependent band structure) ships in v0.24.0. The M16
-umbrella plus M17 close the position-dependent material parameter
-expansion. The table below is the current state; see the
+M16.7, M17, and M18 have shipped as of v0.25.0. The M16 umbrella
+plus M17 closed the position-dependent material parameter
+expansion; M18 (adaptive timestep for the transient runner)
+closed the transient half of the CI carve-out introduced in
+`ed6719b`. The table below is the current state; see the
 Delivery history section for per-milestone details. Planned
-milestones (M19, M19.1, M20) have explicit acceptance tests in
+milestones (bias-sweep SNES line-search stabilization, M19, M19.1,
+M20) have explicit acceptance tests in
 [`docs/IMPROVEMENT_GUIDE.md`](IMPROVEMENT_GUIDE.md).
 
 | Capability | Dimensions | Status | Verifier |
@@ -45,6 +47,8 @@ milestones (M19, M19.1, M20) have explicit acceptance tests in
 | BBT and TAT tunneling (M16.6) | 1D | shipped | MMS-DD Variant H psi block L2 = 2.000 / H1 = 1.000 (1D); zener_1d ln-J slope sign indicating BBT firing (observed -0.279 per V) and 5x envelope `\|J_FEM - J_Kane\|/J_Kane` over V_R in [-8, -4] V (observed worst 99.88%); doping relaxed to N = 1e18 cm^-3 from the prompt's nominal 1e19 cm^-3 (deep-bias SNES convergence; tighter follow-up tracked in M16.7 backlog) |
 | Time-varying transient contact voltage (M16.7) | 1D | shipped | audit case 06 transient FFT vs AC sweep agreement within 5% (Hann-windowed FFT admittance ratio at V_DC = 0.4 V, F = 1 MHz, dV = 1 mV); pn_1d_pulse and diode_sine_1d demonstration benchmarks ship the schema variants |
 | Heterojunctions (M17) | 2D | shipped | schema 2.8.0 `regions[].material_overrides` + `heterojunction` switch; AlGaAs_0p3 in materials database; `semi/physics/heterojunction.py` builds per-cell DG0 chi/Eg/Nc/Nv/n_i/eps_r fields threaded through Poisson and DD form builders; `semi/bcs.py` Anderson-rule local-chi ohmic equilibrium psi; ADR 0016; `benchmarks/hemt_2d/` classical-electrostatic 2DEG reference (FEM-side n_s integration is a Phase F follow-up) |
+| Adaptive timestep for the transient runner (M18) | 1D / 2D | shipped | schema 2.9.0 `solver.adaptive` opt-in; reuses `semi.continuation.AdaptiveStepController` on the dt axis; variable-step BDF2 in `semi/timestepping.py` (`BDFCoefficients.variable_bdf2(omega)`; bit-identical to uniform BDF2 at omega = 1.0); time loop in `semi/runners/transient.py` snapshots and restores Slotboom state on SNES failure, halves dt, retries; clamps dt at `t_end` and at every `voltage_t` waveform breakpoint (`step.t0` and every interior `table.times[i]`); audit case 07 adaptive-vs-fixed within 1 % on `benchmarks/pn_1d_turnon`; ADR 0017 amends ADR 0010 ("no adaptive dt") scoped to the transient runner; `power_diode_reverse_recovery` `allow-failure: "true"` retired (`mosfet_2d` and `nmos_idvgs` flags retained as bias_sweep follow-up) |
+| Bias-sweep SNES line-search stabilization (unblocks `nmos_idvgs`) | 2D | Planned | `nmos_idvgs` runs without `allow-failure: "true"`; SNES converges across the V_GS-FD-stat MOSFET inversion onset; ADR-level decision on line-search choice (`nleqerr` / `cp` / homotopy) |
 | 3D MOSFET benchmark (M19) | 3D | Planned | Pao-Sah within 25% (linear); velsat within 30% (saturation); >=5x GPU speedup at 500k DOFs |
 | MPI parallel benchmark (M19.1) | 3D | Planned | mosfet_3d under mpiexec -n {1,2,4} same I_D within 1e-8; n=4 vs n=1 speedup >=2.5x |
 | HTTP server hardening (M20) | n/a | Planned | unauthenticated POST /solve returns 401; authenticated rate-limited 429 on overrun |

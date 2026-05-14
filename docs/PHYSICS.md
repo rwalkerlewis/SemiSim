@@ -780,6 +780,31 @@ by the `benchmarks/zener_1d` Kane analytical match within 20 %
 from V_R = 4 V to 8 V (M16.6 acceptance test in
 `docs/IMPROVEMENT_GUIDE.md` § M16.6).
 
+### 5.4.x M18: adaptive timestep (audit-only V&V; v0.25.0)
+
+M18 (adaptive timestep for the transient runner) is a runner-
+driver change, not a new physics kernel. Per ADR 0006 the per-
+physics-module MMS rule applies to new physics kernels only;
+M18 ships none and the existing transient MMS coverage at
+Variants A through H is sufficient for the residual side. The
+V&V gate for the adaptive controller itself is audit case 07
+(`tests/audit/test_07_adaptive_dt_vs_fixed_dt.py`), which
+compares the adaptive run to the shipped fixed-dt reference on
+`benchmarks/pn_1d_turnon` within 1 % at every recorded sample.
+Subsamples adaptive onto the fixed grid via linear interpolation;
+uses `dt_max = solver.dt` so the adaptive run is constrained to
+never exceed the fixed-dt resolution, isolating the controller's
+halving response from the integration-order question. The
+variable-step BDF2 path is a coefficient identity at omega = 1.0
+(`(1.5, -2.0, 0.5)` collapses to the uniform-step triplet stored
+in `BDFCoefficients._SUPPORTED_COEFFS[2]`); the bit-identity gate
+on every existing benchmark with `solver.adaptive` absent or
+`enabled: false` is the integration-order check. Same precedent
+as M16.7 (also a transient-runner extension, also audit-only):
+the per-physics MMS rule does not apply, the existing variant
+ladder remains the residual gate, and the audit case is the
+correctness-of-the-driver gate.
+
 ### 5.5 MMS for multi-region Poisson (M6: 2D MOS capacitor)
 
 Guards the Si/SiO2 coefficient-jump assembly used by the MOS
