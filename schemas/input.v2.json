@@ -1254,6 +1254,12 @@
               "minimum": 1,
               "description": "Maximum SNES iterations per Newton solve in the bias_sweep DD block.",
               "default": 100
+            },
+            "line_search": {
+              "type": "string",
+              "enum": ["bt", "nleqerr", "cp", "l2", "basic"],
+              "description": "PETSc SNES line-search type for the coupled drift-diffusion block. `bt` is the M12-era default (backtracking, ADR 0008). `nleqerr` (Deuflhard 2004 natural-monotonicity test, ADR 0018) is the recommended choice for MOSFET-like configurations where the Newton direction can stall the `bt` merit function near depletion-to-inversion onset. `cp`, `l2`, `basic` are exposed for completeness; see PETSc SNES manual for semantics. Default `bt` preserves byte-identity to v0.25.0.",
+              "default": "bt"
             }
           },
           "additionalProperties": false

@@ -168,6 +168,13 @@ def run_bias_sweep(
         "snes_stol": float(snes_opts.get("stol", 1.0e-14)),
         "snes_max_it": int(snes_opts.get("max_it", 100)),
     }
+    # M18.1 / ADR 0018: SNES line-search type for the coupled DD solve.
+    # Default `bt` reproduces the M12-era behaviour exactly (byte-identical
+    # to v0.25.0 across every existing benchmark). MOSFET-like configs that
+    # stall the bt merit function (nmos_idvgs at depletion-to-inversion
+    # onset under FD statistics) opt into `nleqerr` for the Deuflhard 2004
+    # natural-monotonicity test.
+    snes_line_search = str(snes_opts.get("line_search", "bt"))
 
     stat_cfg = {"statistics": phys.get("statistics", "boltzmann")}
 
@@ -294,6 +301,7 @@ def run_bias_sweep(
             bcs, prefix=f"{cfg['name']}_dd_{tag}_",
             petsc_options=snes_petsc_options,
             cfg=cfg,
+            line_search=snes_line_search,
         )
 
     sweep_facet_info = None

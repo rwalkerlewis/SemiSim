@@ -169,7 +169,19 @@ ENGINE_SUPPORTED_SCHEMA_MAJOR = max(ENGINE_SUPPORTED_SCHEMA_MAJORS)
 #                validate time so users see the failure before the FEM
 #                path. v2.0.0 through v2.8.0 inputs continue to
 #                validate.
-SCHEMA_SUPPORTED_MINOR = 9
+#   M18.1 (2.10.0): added solver.snes.line_search (optional enum) for
+#                the coupled drift-diffusion bias_sweep block. Accepted
+#                values: "bt" (default; backtracking, M12 default),
+#                "nleqerr" (Deuflhard 2004 natural monotonicity test;
+#                recommended for MOSFET-like configurations under
+#                ADR 0018), "cp", "l2", "basic". The bias_sweep runner
+#                threads the value through SNESLineSearch.setType()
+#                after the dolfinx NonlinearProblem is constructed. The
+#                default "bt" is bit-identical to v0.25.0 on every
+#                existing benchmark (SNES atol of 1e-7 dominates the
+#                Newton trajectory choice at converged solutions).
+#                v2.0.0 through v2.9.0 inputs continue to validate.
+SCHEMA_SUPPORTED_MINOR = 10
 
 
 @lru_cache(maxsize=8)

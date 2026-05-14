@@ -118,6 +118,29 @@ def _apply_factor_options(snes, factor_opts: dict[str, Any]) -> None:
             Fmat.setMumpsIcntl(idx, int(v))
 
 
+def apply_snes_line_search(snes, ls_type: str | None) -> None:
+    """
+    Set the SNES line-search type directly via petsc4py after the
+    dolfinx NonlinearProblem has been constructed.
+
+    The dolfinx 0.10 ``NonlinearProblem`` configures its SNES with
+    ``SNESSetFromOptions`` before the SNES line-search context exists,
+    so ``snes_linesearch_*`` options pushed through the
+    ``petsc_options`` dict are silently dropped. Calling
+    ``SNESLineSearch.setType`` directly on the line-search object is
+    the working path (ADR 0018).
+
+    ``ls_type`` is the PETSc line-search type name (``"bt"``,
+    ``"nleqerr"``, ``"cp"``, ``"l2"``, ``"basic"``). ``None`` or
+    ``""`` is a no-op so callers can pass the resolved cfg field
+    unconditionally.
+    """
+    if not ls_type:
+        return
+    ls = snes.getLineSearch()
+    ls.setType(str(ls_type))
+
+
 def _install_jacobian_shift(snes, epsilon: float) -> None:
     """
     Wrap the SNES Jacobian callback to add ``epsilon * I`` to the
@@ -259,6 +282,7 @@ def solve_nonlinear_block(
     entity_maps: list | None = None,
     jacobian_shift: float = 0.0,
     cfg: dict[str, Any] | None = None,
+    line_search: str | None = None,
 ):
     """
     Solve a coupled block nonlinear problem via SNES.
@@ -321,6 +345,7 @@ def solve_nonlinear_block(
     )
     _apply_factor_options(problem.solver, factor_opts)
     _install_jacobian_shift(problem.solver, jacobian_shift)
+    apply_snes_line_search(problem.solver, line_search)
     _t0 = time.monotonic()
     problem.solve()
     linear_solve_wall_s = time.monotonic() - _t0
