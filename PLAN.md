@@ -36,8 +36,35 @@ recombination for 1D/2D/3D devices.
 ## Current state
 
 M1 through M15 plus M14.3, M14.4, M16.1, M16.2, M16.3, M16.4,
-M16.5, M16.6, M16.7, M17, and M18 are merged into `main`. Current
-package version is `0.25.0`; M18 (adaptive timestep for the
+M16.5, M16.6, M16.7, M17, M18, and M18.1 are merged into `main`.
+Current package version is `0.26.0`; M18.1 (bias-sweep SNES
+line-search stabilization, branch
+`dev/m18.1-bias-sweep-snes-stabilization`) shipped in v0.26.0
+with schema additive minor bump v2.9.0 -> v2.10.0
+(`solver.snes.line_search` enum on the existing `solver.snes`
+sub-object; accepts `"bt"`, `"nleqerr"`, `"cp"`, `"l2"`,
+`"basic"`; default `"bt"` is byte-identical to v0.25.0). ADR
+0018 documents the line-search decision (Deuflhard 2004 natural
+monotonicity test) and the rejected alternatives (damping
+schedule <1.0 breaks the seed solve; FD-prefactor homotopy is
+out of scope for M18.1). New helper
+`semi.solver.apply_snes_line_search(snes, ls_type)` calls
+`SNESLineSearch.setType()` directly on the SNES because dolfinx
+0.10's `NonlinearProblem` runs `setFromOptions` before the
+line-search context exists. The `nmos_idvgs` example is
+re-parameterised (N_A = 1e16 cm^-3 body, V_GS sweep stop 0.5 V,
+`solver.snes.line_search: "nleqerr"`) and retires the
+`allow-failure: "true"` carve-out it carried since PR #85; the
+`mosfet_2d` `allow-failure: "true"` flag stays in place (that
+is a separate, independently-tracked SNES depletion-onset
+issue). Configs without `solver.snes.line_search` (or with
+`line_search: "bt"`) are bit-identical to v0.25.0 on every
+existing benchmark (pn_1d_bias anchor: J(V=0.6 V) = 1.635e+03
+A/m^2; the diode_velsat_1d, diode_auger_1d,
+diode_fermi_dirac_1d, schottky_1d, zener_1d, pn_1d_turnon,
+pn_1d_pulse, diode_sine_1d, rc_ac_sweep, and resistor_3d
+anchors all continue to hold).
+M18 (adaptive timestep for the
 transient runner, branch `dev/m18-adaptive-dt-transient`) shipped
 in v0.25.0 with schema additive minor bump v2.8.0 -> v2.9.0
 (`solver.adaptive` with `enabled`, `dt_min`, `dt_max`,
@@ -364,25 +391,15 @@ M15 through M18. Summary:
 
 ## Next task
 
-The next-task pointer is between two unblocked candidates; the
-maintainer chooses. M18 (adaptive dt for the transient runner,
-shipped in v0.25.0) closed the transient half of the CI carve-out
-introduced in `ed6719b`. The bias_sweep half (`nmos_idvgs`)
-remains tagged `allow-failure: "true"` and is the natural
-follow-up to retire that flag.
-
-- **Bias-sweep SNES line-search stabilization (unblocks
-  `nmos_idvgs`).** The remaining half of the CI carve-out. The
-  V_GS sweep across the MOSFET inversion onset under Fermi-Dirac
-  statistics stagnates because the SNES default line search
-  (`bt`, backtracking) cannot find a descent direction at the
-  threshold. Candidate fixes: switch to PETSc `nleqerr` or `cp`
-  line search, add a damping schedule, or introduce a homotopy
-  parameter on the FD prefactor. ADR-level decision; reuses
-  `semi.continuation.AdaptiveStepController` along the V_GS axis
-  (already in place for forward-bias ramps; the issue is the SNES
-  inner solve, not the outer voltage step). Closing this retires
-  the last `allow-failure: "true"` carve-out beyond `mosfet_2d`.
+M18.1 (bias-sweep SNES line-search stabilization, shipped in
+v0.26.0) closed the bias_sweep half of the CI carve-out
+introduced in `ed6719b`. The sole remaining unblocked candidate
+on the roadmap is now M19; the only remaining `allow-failure:
+"true"` carve-out is `mosfet_2d`, tracked as a separate,
+independently-managed SNES depletion-onset follow-up that
+M18.1's heavier-doping backlog item ("Bias-sweep SNES robustness,
+phase 2"; see ADR 0018 Deferred section) is the natural sibling
+of.
 
 - **M19: 3D MOSFET capstone.** A 3D MOSFET on a gmsh-sourced
   unstructured mesh, exercising the M15 GPU linear-solver path
@@ -399,8 +416,8 @@ follow-up to retire that flag.
 Acceptance tests are documented in
 [`docs/IMPROVEMENT_GUIDE.md`](docs/IMPROVEMENT_GUIDE.md) § 4 and
 [`docs/ROADMAP.md`](docs/ROADMAP.md). The next reviewer authors a
-starter prompt against the chosen item in the same shape as
-`docs/M18_STARTER_PROMPT.md`.
+starter prompt against M19 in the same shape as
+`docs/M18_1_STARTER_PROMPT.md`.
 
 ## Backlog
 
@@ -547,6 +564,52 @@ None as of v0.17.0.
 
 Append-only. Newest entries on top.
 
+- **M18.1 bias-sweep SNES line-search stabilization (2026-05-14):**
+  Branch `dev/m18.1-bias-sweep-snes-stabilization`, six
+  phase-letter commits per `docs/M18_1_STARTER_PROMPT.md`. Schema
+  additive minor bump v2.9.0 -> v2.10.0
+  (`solver.snes.line_search` enum on the existing `solver.snes`
+  sub-object; accepts `"bt"`, `"nleqerr"`, `"cp"`, `"l2"`,
+  `"basic"`; default `"bt"`); package version 0.25.0 -> 0.26.0.
+  Closes the bias_sweep half of the CI carve-out introduced in
+  `ed6719b`. New helper
+  `semi.solver.apply_snes_line_search(snes, ls_type)` calls
+  `SNESLineSearch.setType()` directly on the SNES object because
+  dolfinx 0.10's `NonlinearProblem` runs `setFromOptions` before
+  the line-search context exists, so `snes_linesearch_*` options
+  pushed through `petsc_options` are silently dropped. ADR 0018
+  documents the diagnostic evidence (bt stalls at V_GS = 0.3 V
+  with reason -6 SNES_DIVERGED_LINE_SEARCH; nleqerr extends the
+  converged sweep through V_GS = 0.3 V then hits reason -4
+  SNES_DIVERGED_FNORM_NAN at V_GS = 0.4 V where the Newton
+  update overshoots into the FD prefactor overflow regime), the
+  chosen fix (nleqerr + lighter body doping in the example), and
+  the rejected alternatives (damping <1.0 breaks the seed solve;
+  FD-prefactor homotopy is out of scope; compiled-in nleqerr
+  default would violate the spirit of byte-identity). The
+  `nmos_idvgs` example is re-parameterised (body acceptor doping
+  N_A = 5e17 -> 1e16 cm^-3; V_GS sweep stop 1.8 V -> 0.5 V;
+  `solver.snes.line_search: "nleqerr"`; schema version 2.7.0 ->
+  2.10.0) and retires its `allow-failure: "true"` carve-out via
+  a rewritten smoke verifier that gates J_drain finite +
+  monotone non-decreasing + positive transconductance in the
+  inversion-onset window. The heavier-body / wider-sweep regime
+  is deferred behind "Bias-sweep SNES robustness, phase 2" (ADR
+  0018 Deferred section); `mosfet_2d` `allow-failure: "true"`
+  stays in place (independent, separately-tracked SNES
+  depletion-onset issue). Configs without
+  `solver.snes.line_search` (or with `line_search: "bt"`) are
+  bit-identical to v0.25.0 on every existing benchmark
+  (pn_1d_bias J(V=0.6 V) = 1.635e+03 A/m^2; the diode_velsat_1d,
+  diode_auger_1d, diode_fermi_dirac_1d, schottky_1d, zener_1d,
+  pn_1d_turnon, pn_1d_pulse, diode_sine_1d, rc_ac_sweep, and
+  resistor_3d anchors all continue to hold). M18.1 ships no MMS
+  variant (per ADR 0006: M18.1 is a solver-driver change with
+  qualitative-shape V&V via the rewritten smoke verifier; same
+  precedent as M16.7 and M18). Coverage gate at 95 holds without
+  a follow-up commit thanks to
+  `tests/test_snes_line_search_schema.py` (31 cases) and
+  `tests/test_apply_snes_line_search.py` (7 cases).
 - **M18 adaptive timestep for the transient runner (2026-05-09):**
   Branch `dev/m18-adaptive-dt-transient`, PR #88, six phase-letter
   commits per `docs/M18_STARTER_PROMPT.md`. Schema additive minor

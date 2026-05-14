@@ -1138,14 +1138,47 @@ The engine is ready for a UI when all of these are green:
 
 ### [Unreleased]
 
+### [0.26.0]
+
+- **2026-05-14**, M18.1 bias-sweep SNES line-search stabilization
+  shipped (v0.26.0): § 4 M18.1 marked Done with `[0.26.0]`
+  CHANGELOG anchor. Schema additive minor bump v2.9.0 -> v2.10.0
+  (`solver.snes.line_search` enum on the existing `solver.snes`
+  sub-object; accepts `"bt"`, `"nleqerr"`, `"cp"`, `"l2"`,
+  `"basic"`; default `"bt"`). Closes the bias_sweep half of the
+  CI carve-out introduced in `ed6719b`. ADR 0018 documents the
+  diagnostic evidence (bt stalls at V_GS = 0.3 V with reason -6
+  SNES_DIVERGED_LINE_SEARCH; nleqerr extends the converged sweep
+  through V_GS = 0.3 V then hits reason -4 SNES_DIVERGED_FNORM_NAN
+  at V_GS = 0.4 V; the chosen fix is nleqerr line search plus a
+  lighter-body re-parameterisation of the example), the chosen
+  fix, and the rejected alternatives (damping <1.0 breaks the seed
+  solve; FD-prefactor homotopy is out of scope; compiled-in
+  nleqerr default would violate the spirit of byte-identity).
+  Cross-references ADR 0008 (M12 SNES tolerance amendment, same
+  solver path). New helper
+  `semi.solver.apply_snes_line_search(snes, ls_type)` calls
+  `SNESLineSearch.setType()` directly on the SNES object because
+  dolfinx 0.10's `NonlinearProblem` runs `setFromOptions` before
+  the line-search context exists. The `nmos_idvgs` example is
+  re-parameterised (N_A = 1e16 cm^-3 body, V_GS sweep stop 0.5 V,
+  `solver.snes.line_search: "nleqerr"`) and retires its
+  `allow-failure: "true"` CI carve-out; rewritten smoke verifier
+  gates J_drain finite + monotone non-decreasing + positive
+  transconductance in [0.3, 0.5] V. `mosfet_2d` `allow-failure`
+  stays in place (separate follow-up). Configs without the new
+  field (or with `line_search: "bt"`) are bit-identical to v0.25.0
+  on every existing benchmark (pn_1d_bias anchor: J(V=0.6 V) =
+  1.635e+03 A/m^2; the diode_velsat_1d, diode_auger_1d,
+  diode_fermi_dirac_1d, schottky_1d, zener_1d, pn_1d_turnon,
+  pn_1d_pulse, diode_sine_1d, rc_ac_sweep, and resistor_3d
+  anchors all continue to hold).
 - **2026-05-14**, author M18.1 starter prompt
   ([M18_1_STARTER_PROMPT.md](M18_1_STARTER_PROMPT.md)) on branch
   `dev/m18.1-bias-sweep-snes-stabilization`; phases 0 through F
   ship the SNES line-search stabilization for the bias_sweep
   runner and retire the `nmos_idvgs` CI `allow-failure: "true"`
-  carve-out. ADR 0018 documents the line-search decision and the
-  rejected alternatives (damping, FD homotopy); cross-references
-  ADR 0008 (M12 SNES tolerance amendment, same solver path).
+  carve-out.
 
 ### [0.25.0]
 
