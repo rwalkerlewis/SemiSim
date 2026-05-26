@@ -169,13 +169,15 @@ ENGINE_SUPPORTED_SCHEMA_MAJOR = max(ENGINE_SUPPORTED_SCHEMA_MAJORS)
 #                validate time so users see the failure before the FEM
 #                path. v2.0.0 through v2.8.0 inputs continue to
 #                validate.
-#   M18.1 (2.10.0): added solver.diagnostics (bool, default false)
-#                   and solver.line_search (bt | nleqerr | cp |
-#                   basic | l2, default bt) for the bias_sweep
-#                   runner. When diagnostics is true, the runner
-#                   records SNES per-iteration norms and line-search
-#                   reasons to a run artifact. Non-bias_sweep solver
-#                   types reject either field at validate time.
+#   M18.1 (2.10.0): added solver.diagnostics (bool, default false),
+#                   solver.line_search (bt | nleqerr | cp | basic |
+#                   l2, default bt), and solver.damping_schedule
+#                   (enabled, lambda_start, lambda_end, decay_iters;
+#                   default enabled false) for the bias_sweep runner.
+#                   When diagnostics is true, the runner records SNES
+#                   per-iteration norms and line-search reasons to a
+#                   run artifact. Non-bias_sweep solver types reject
+#                   these fields at validate time.
 SCHEMA_SUPPORTED_MINOR = 10
 
 
@@ -586,6 +588,51 @@ def _validate_bias_sweep_solver_fields(cfg: dict[str, Any]) -> None:
             f"(solver.type='bias_sweep'); got solver.type={solver_type!r}. "
             f"Remove solver.diagnostics or change solver.type (M18.1)."
         )
+    if "damping_schedule" in solver:
+        raise SchemaError(
+            f"solver.damping_schedule is only consumed by the bias_sweep runner "
+            f"(solver.type='bias_sweep'); got solver.type={solver_type!r}. "
+            f"Remove solver.damping_schedule or change solver.type (M18.1)."
+        )
+
+
+def _validate_damping_schedule(cfg: dict[str, Any]) -> None:
+    """Cross-field validation for solver.damping_schedule (M18.1)."""
+    solver = cfg.get("solver", {})
+    damping = solver.get("damping_schedule")
+    if damping is None or not damping.get("enabled", False):
+        return
+    if "lambda_start" not in damping:
+        raise SchemaError(
+            "solver.damping_schedule.enabled is true; "
+            "solver.damping_schedule.lambda_start is required (M18.1)."
+        )
+    if "lambda_end" not in damping:
+        raise SchemaError(
+            "solver.damping_schedule.enabled is true; "
+            "solver.damping_schedule.lambda_end is required (M18.1)."
+        )
+    if "decay_iters" not in damping:
+        raise SchemaError(
+            "solver.damping_schedule.enabled is true; "
+            "solver.damping_schedule.decay_iters is required (M18.1)."
+        )
+    lambda_start = float(damping["lambda_start"])
+    lambda_end = float(damping["lambda_end"])
+    if not (0.0 < lambda_start <= 1.0):
+        raise SchemaError(
+            f"solver.damping_schedule.lambda_start ({lambda_start:g}) must lie in "
+            "(0, 1] (M18.1)."
+        )
+    if not (0.0 < lambda_end <= 1.0):
+        raise SchemaError(
+            f"solver.damping_schedule.lambda_end ({lambda_end:g}) must lie in "
+            "(0, 1] (M18.1)."
+        )
+    if int(damping["decay_iters"]) < 1:
+        raise SchemaError(
+            "solver.damping_schedule.decay_iters must be >= 1 (M18.1)."
+        )
 
 
 _TUNNELING_DEFAULTS: dict[str, Any] = {
@@ -703,6 +750,12 @@ def _fill_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
     if solver.get("type") == "bias_sweep":
         solver.setdefault("diagnostics", False)
         solver.setdefault("line_search", "bt")
+        damping = solver.get("damping_schedule")
+        if isinstance(damping, dict):
+            damping.setdefault("enabled", False)
+            damping.setdefault("lambda_start", 1.0)
+            damping.setdefault("lambda_end", 1.0)
+            damping.setdefault("decay_iters", 1)
     ls = solver.setdefault("linear_solver", {})
     ls.setdefault("ksp_type", "preonly")
     ls.setdefault("pc_type", "lu")
@@ -719,6 +772,7 @@ def _fill_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
     _validate_voltage_t(cfg)
     _validate_adaptive_dt(cfg)
     _validate_bias_sweep_solver_fields(cfg)
+    _validate_damping_schedule(cfg)
 
     out = cfg.setdefault("output", {})
     out.setdefault("directory", "./results")
