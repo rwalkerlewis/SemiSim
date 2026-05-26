@@ -1183,6 +1183,23 @@
           },
           "additionalProperties": false
         },
+        "diagnostics": {
+          "type": "boolean",
+          "description": "Bias-sweep SNES diagnostics switch (M18.1). When true, the bias_sweep runner records per-Newton residual norms, SNES converged reasons, and line-search reasons to `snes_diagnostics.json` in the run artifact. Only consumed by the bias_sweep runner; other solver types reject the field at validate time.",
+          "default": false
+        },
+        "line_search": {
+          "type": "string",
+          "enum": [
+            "bt",
+            "nleqerr",
+            "cp",
+            "basic",
+            "l2"
+          ],
+          "description": "PETSc SNES line-search type for the bias_sweep runner (M18.1). Default `bt` preserves the shipped path; `nleqerr`, `cp`, `basic`, and `l2` are opt-in stabilization candidates for difficult gate sweeps. Only consumed by the bias_sweep runner; other solver types reject the field at validate time.",
+          "default": "bt"
+        },
         "max_iterations": {
           "type": "integer",
           "description": "Maximum SNES iterations per Newton solve.",

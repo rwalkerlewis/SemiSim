@@ -155,19 +155,28 @@ def run_bias_sweep(
     min_step = float(cont.get("min_step", 1.0e-4))
     easy_iter_threshold = int(cont.get("easy_iter_threshold", 4))
     grow_factor = float(cont.get("grow_factor", 1.5))
+    solver_cfg = cfg.get("solver", {})
+    diagnostics_enabled = bool(solver_cfg.get("diagnostics", False))
+    line_search_type = str(solver_cfg.get("line_search", "bt"))
 
     # SNES tolerances for the coupled DD block solve. Defaults match the
     # M12 close-out values documented in docs/adr/0008-snes-tolerances.md.
     # Per-config overrides live under solver.snes so legacy benchmarks
     # (pn_1d_bias, pn_1d_bias_reverse) can keep machine-tight convergence
     # required to pass <5% / <15% current-continuity gates.
-    snes_opts = cfg.get("solver", {}).get("snes", {}) or {}
+    snes_opts = solver_cfg.get("snes", {}) or {}
     snes_petsc_options = {
         "snes_rtol": float(snes_opts.get("rtol", 1.0e-10)),
         "snes_atol": float(snes_opts.get("atol", 1.0e-7)),
         "snes_stol": float(snes_opts.get("stol", 1.0e-14)),
         "snes_max_it": int(snes_opts.get("max_it", 100)),
+        "snes_linesearch_type": line_search_type,
     }
+    snes_diagnostics = (
+        {"line_search_type": line_search_type, "solves": []}
+        if diagnostics_enabled
+        else None
+    )
 
     stat_cfg = {"statistics": phys.get("statistics", "boltzmann")}
 
@@ -271,8 +280,32 @@ def run_bias_sweep(
         for fn in (spaces.psi, spaces.phi_n, spaces.phi_p):
             fn.x.scatter_forward()
 
+    def _record_diagnostics(
+        *,
+        tag: str,
+        voltages: dict[str, float],
+        info: dict[str, Any],
+        solve_records: list[dict[str, Any]] | None,
+    ) -> None:
+        if snes_diagnostics is None or solve_records is None:
+            return
+        snes_diagnostics["solves"].append(
+            {
+                "tag": tag,
+                "voltages": {name: float(value) for name, value in voltages.items()},
+                "converged": bool(info.get("converged", False)),
+                "iterations": int(info.get("iterations", 0)),
+                "linear_solve_wall_s": float(info.get("linear_solve_wall_s", 0.0)),
+                "snes_converged_reason": int(info.get("reason", 0)),
+                "snes_linesearch_reason": int(info.get("line_search_reason", 0)),
+                "line_search_type": str(info.get("line_search_type", line_search_type)),
+                "newton_iterations": list(solve_records),
+            }
+        )
     def solve_at(V_by_contact: dict[str, float], tag: str):
+        solve_records: list[dict[str, Any]] | None = [] if diagnostics_enabled else None
         contacts = resolve_contacts(cfg, facet_tags=facet_tags, voltages=V_by_contact)
+        bcs = build_dd_dirichlet_bcs(
         bcs = build_dd_dirichlet_bcs(
             spaces, msh, facet_tags, contacts, sc, ref_mat, N_raw_fn,
             regions_cfg=cfg.get("regions"), cell_tags=cell_tags,
@@ -289,12 +322,15 @@ def run_bias_sweep(
         for fn in (spaces.psi, spaces.phi_n, spaces.phi_p):
             fn.x.scatter_forward()
         F_list_step = _build_F_list(V_by_contact) if has_schottky else F_list
-        return solve_nonlinear_block(
+        info = solve_nonlinear_block(
             F_list_step, [spaces.psi, spaces.phi_n, spaces.phi_p],
             bcs, prefix=f"{cfg['name']}_dd_{tag}_",
             petsc_options=snes_petsc_options,
+            snes_diagnostics=solve_records,
             cfg=cfg,
         )
+        _record_diagnostics(tag=tag, voltages=V_by_contact, info=info, solve_records=solve_records)
+        return info
 
     sweep_facet_info = None
     if sweep_contact is not None:
@@ -446,6 +482,7 @@ def run_bias_sweep(
         p_phys=p_hat * sc.C0,
         x_dof=x_dof, N_hat=N_hat_fn, scaling=sc,
         solver_info=last_info, iv=iv_rows, bias_contact=sweep_contact,
+        snes_diagnostics=snes_diagnostics,
     )
 
 

@@ -149,6 +149,28 @@ def _install_jacobian_shift(snes, epsilon: float) -> None:
     snes.setJacobian(shifted_jacobian, J_mat, P_mat)
 
 
+def _install_snes_monitor(snes, diagnostics: list[dict[str, Any]] | None) -> None:
+    """Attach a Python SNES monitor that records plain JSON-serialisable data."""
+    if diagnostics is None:
+        return
+
+    def _monitor(snes_, its, fnorm):
+        ls_reason = 0
+        try:
+            ls_reason = int(snes_.getLineSearch().getReason())
+        except Exception:
+            ls_reason = 0
+        diagnostics.append(
+            {
+                "iteration": int(its),
+                "residual_norm": float(fnorm),
+                "line_search_reason": ls_reason,
+            }
+        )
+
+    snes.setMonitor(_monitor)
+
+
 def _resolve_backend_options(
     cfg: dict[str, Any] | None,
     user_petsc_options: dict[str, Any] | None,
@@ -186,6 +208,7 @@ def _resolve_backend_options(
 def solve_nonlinear(F, u, bcs: list, prefix: str,
                     petsc_options: dict[str, Any] | None = None,
                     jacobian_shift: float = 0.0,
+                    snes_diagnostics: list[dict[str, Any]] | None = None,
                     cfg: dict[str, Any] | None = None):
     """
     Solve a nonlinear variational problem F(u; v) = 0.
@@ -227,11 +250,19 @@ def solve_nonlinear(F, u, bcs: list, prefix: str,
     )
     _apply_factor_options(problem.solver, factor_opts)
     _install_jacobian_shift(problem.solver, jacobian_shift)
+    _install_snes_monitor(problem.solver, snes_diagnostics)
     _t0 = time.monotonic()
     problem.solve()
     linear_solve_wall_s = time.monotonic() - _t0
     reason = problem.solver.getConvergedReason()
     n_iter = problem.solver.getIterationNumber()
+    try:
+        line_search = problem.solver.getLineSearch()
+        line_search_reason = int(line_search.getReason())
+        line_search_type = str(line_search.getType())
+    except Exception:
+        line_search_reason = 0
+        line_search_type = "unknown"
     try:
         ksp_iters = int(problem.solver.getKSP().getIterationNumber())
     except Exception:
@@ -243,6 +274,8 @@ def solve_nonlinear(F, u, bcs: list, prefix: str,
         "converged": bool(converged),
         "ksp_iters": ksp_iters,
         "linear_solve_wall_s": float(linear_solve_wall_s),
+        "line_search_reason": line_search_reason,
+        "line_search_type": line_search_type,
         "problem": problem,  # kept so caller can inspect further
     }
     out.update(backend_meta)
@@ -258,6 +291,7 @@ def solve_nonlinear_block(
     kind: str | None = None,
     entity_maps: list | None = None,
     jacobian_shift: float = 0.0,
+    snes_diagnostics: list[dict[str, Any]] | None = None,
     cfg: dict[str, Any] | None = None,
 ):
     """
@@ -321,11 +355,19 @@ def solve_nonlinear_block(
     )
     _apply_factor_options(problem.solver, factor_opts)
     _install_jacobian_shift(problem.solver, jacobian_shift)
+    _install_snes_monitor(problem.solver, snes_diagnostics)
     _t0 = time.monotonic()
     problem.solve()
     linear_solve_wall_s = time.monotonic() - _t0
     reason = problem.solver.getConvergedReason()
     n_iter = problem.solver.getIterationNumber()
+    try:
+        line_search = problem.solver.getLineSearch()
+        line_search_reason = int(line_search.getReason())
+        line_search_type = str(line_search.getType())
+    except Exception:
+        line_search_reason = 0
+        line_search_type = "unknown"
     try:
         ksp_iters = int(problem.solver.getKSP().getIterationNumber())
     except Exception:
@@ -337,6 +379,8 @@ def solve_nonlinear_block(
         "converged": bool(converged),
         "ksp_iters": ksp_iters,
         "linear_solve_wall_s": float(linear_solve_wall_s),
+        "line_search_reason": line_search_reason,
+        "line_search_type": line_search_type,
         "problem": problem,
     }
     out.update(backend_meta)

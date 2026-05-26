@@ -169,7 +169,14 @@ ENGINE_SUPPORTED_SCHEMA_MAJOR = max(ENGINE_SUPPORTED_SCHEMA_MAJORS)
 #                validate time so users see the failure before the FEM
 #                path. v2.0.0 through v2.8.0 inputs continue to
 #                validate.
-SCHEMA_SUPPORTED_MINOR = 9
+#   M18.1 (2.10.0): added solver.diagnostics (bool, default false)
+#                   and solver.line_search (bt | nleqerr | cp |
+#                   basic | l2, default bt) for the bias_sweep
+#                   runner. When diagnostics is true, the runner
+#                   records SNES per-iteration norms and line-search
+#                   reasons to a run artifact. Non-bias_sweep solver
+#                   types reject either field at validate time.
+SCHEMA_SUPPORTED_MINOR = 10
 
 
 @lru_cache(maxsize=8)
@@ -554,6 +561,33 @@ def _validate_adaptive_dt(cfg: dict[str, Any]) -> None:
             )
 
 
+def _validate_bias_sweep_solver_fields(cfg: dict[str, Any]) -> None:
+    """
+    Cross-field validation for M18.1 bias_sweep-only solver fields.
+
+    `solver.line_search` and `solver.diagnostics` are additive schema
+    fields consumed only by `semi.runners.bias_sweep`. Reject them on
+    every other solver type so users see the mismatch at validate time
+    rather than after a FEM solve starts.
+    """
+    solver = cfg.get("solver", {})
+    solver_type = solver.get("type", "equilibrium")
+    if solver_type == "bias_sweep":
+        return
+    if "line_search" in solver:
+        raise SchemaError(
+            f"solver.line_search is only consumed by the bias_sweep runner "
+            f"(solver.type='bias_sweep'); got solver.type={solver_type!r}. "
+            f"Remove solver.line_search or change solver.type (M18.1)."
+        )
+    if "diagnostics" in solver:
+        raise SchemaError(
+            f"solver.diagnostics is only consumed by the bias_sweep runner "
+            f"(solver.type='bias_sweep'); got solver.type={solver_type!r}. "
+            f"Remove solver.diagnostics or change solver.type (M18.1)."
+        )
+
+
 _TUNNELING_DEFAULTS: dict[str, Any] = {
     "bbt": False,
     "tat": False,
@@ -666,6 +700,9 @@ def _fill_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
     solver.setdefault("atol", 1.0e-10)
     solver.setdefault("rtol", 1.0e-8)
     solver.setdefault("damping", 1.0)
+    if solver.get("type") == "bias_sweep":
+        solver.setdefault("diagnostics", False)
+        solver.setdefault("line_search", "bt")
     ls = solver.setdefault("linear_solver", {})
     ls.setdefault("ksp_type", "preonly")
     ls.setdefault("pc_type", "lu")
@@ -681,6 +718,7 @@ def _fill_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
     _validate_compute(cfg)
     _validate_voltage_t(cfg)
     _validate_adaptive_dt(cfg)
+    _validate_bias_sweep_solver_fields(cfg)
 
     out = cfg.setdefault("output", {})
     out.setdefault("directory", "./results")
