@@ -48,6 +48,7 @@ class SimulationResult:
     solver_info: dict[str, Any] = field(default_factory=dict)
     iv: list[dict[str, float]] = field(default_factory=list)
     bias_contact: str | None = None
+    snes_diagnostics: dict[str, Any] | None = None
 
 
 def run(cfg: dict[str, Any]):

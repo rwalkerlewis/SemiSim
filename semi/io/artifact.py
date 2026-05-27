@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 from .reader import read_manifest  # re-export
 
-_SCHEMA_VERSION = "1.1.0"
+_SCHEMA_VERSION = "1.2.0"
 
 __all__ = ["write_artifact", "read_manifest"]
 
@@ -102,7 +102,16 @@ def write_artifact(
     # 8. Write convergence CSV
     _write_convergence_csv(result, run_dir)
 
-    # 9. Build and write manifest
+    # 9. Write optional JSON diagnostics
+    log_entries: list[dict[str, str]] = []
+    if result.snes_diagnostics is not None:
+        diagnostics_relpath = "snes_diagnostics.json"
+        (run_dir / diagnostics_relpath).write_text(
+            json.dumps(result.snes_diagnostics, sort_keys=True, indent=2) + "\n"
+        )
+        log_entries.append({"name": "snes_diagnostics", "path": diagnostics_relpath})
+
+    # 10. Build and write manifest
     wall_time_s = time.monotonic() - t_start
 
     from .. import __version__
@@ -177,6 +186,8 @@ def write_artifact(
 
     if sweep_entries:
         manifest["sweeps"] = sweep_entries
+    if log_entries:
+        manifest["logs"] = log_entries
 
     manifest_text = json.dumps(manifest, sort_keys=True, indent=2) + "\n"
     (run_dir / "manifest.json").write_text(manifest_text)

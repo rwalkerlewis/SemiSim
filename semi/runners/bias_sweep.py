@@ -14,6 +14,14 @@ from typing import Any
 import numpy as np
 
 
+class BiasSweepFailure(RuntimeError):
+    """Bias-sweep failure with optional SNES diagnostics payload."""
+
+    def __init__(self, message: str, *, snes_diagnostics: dict[str, Any] | None = None):
+        super().__init__(message)
+        self.snes_diagnostics = snes_diagnostics
+
+
 def run_bias_sweep(
     cfg: dict[str, Any],
     *,
@@ -155,19 +163,39 @@ def run_bias_sweep(
     min_step = float(cont.get("min_step", 1.0e-4))
     easy_iter_threshold = int(cont.get("easy_iter_threshold", 4))
     grow_factor = float(cont.get("grow_factor", 1.5))
+    solver_cfg = cfg.get("solver", {})
+    diagnostics_enabled = bool(solver_cfg.get("diagnostics", False))
+    line_search_type = str(solver_cfg.get("line_search", "bt"))
+    damping_schedule = solver_cfg.get("damping_schedule") or {}
+    damping_enabled = bool(damping_schedule.get("enabled", False))
 
     # SNES tolerances for the coupled DD block solve. Defaults match the
     # M12 close-out values documented in docs/adr/0008-snes-tolerances.md.
     # Per-config overrides live under solver.snes so legacy benchmarks
     # (pn_1d_bias, pn_1d_bias_reverse) can keep machine-tight convergence
     # required to pass <5% / <15% current-continuity gates.
-    snes_opts = cfg.get("solver", {}).get("snes", {}) or {}
+    snes_opts = solver_cfg.get("snes", {}) or {}
     snes_petsc_options = {
         "snes_rtol": float(snes_opts.get("rtol", 1.0e-10)),
         "snes_atol": float(snes_opts.get("atol", 1.0e-7)),
         "snes_stol": float(snes_opts.get("stol", 1.0e-14)),
         "snes_max_it": int(snes_opts.get("max_it", 100)),
+        "snes_linesearch_type": line_search_type,
     }
+    snes_diagnostics = (
+        {
+            "line_search_type": line_search_type,
+            "damping_schedule": {
+                "enabled": damping_enabled,
+                "lambda_start": float(damping_schedule.get("lambda_start", 1.0)),
+                "lambda_end": float(damping_schedule.get("lambda_end", 1.0)),
+                "decay_iters": int(damping_schedule.get("decay_iters", 1)),
+            },
+            "solves": [],
+        }
+        if diagnostics_enabled
+        else None
+    )
 
     stat_cfg = {"statistics": phys.get("statistics", "boltzmann")}
 
@@ -271,7 +299,30 @@ def run_bias_sweep(
         for fn in (spaces.psi, spaces.phi_n, spaces.phi_p):
             fn.x.scatter_forward()
 
+    def _record_diagnostics(
+        *,
+        tag: str,
+        voltages: dict[str, float],
+        info: dict[str, Any],
+        solve_records: list[dict[str, Any]] | None,
+    ) -> None:
+        if snes_diagnostics is None or solve_records is None:
+            return
+        snes_diagnostics["solves"].append(
+            {
+                "tag": tag,
+                "voltages": {name: float(value) for name, value in voltages.items()},
+                "converged": bool(info.get("converged", False)),
+                "iterations": int(info.get("iterations", 0)),
+                "linear_solve_wall_s": float(info.get("linear_solve_wall_s", 0.0)),
+                "snes_converged_reason": int(info.get("reason", 0)),
+                "snes_linesearch_reason": int(info.get("line_search_reason", 0)),
+                "line_search_type": str(info.get("line_search_type", line_search_type)),
+                "newton_iterations": list(solve_records),
+            }
+        )
     def solve_at(V_by_contact: dict[str, float], tag: str):
+        solve_records: list[dict[str, Any]] | None = [] if diagnostics_enabled else None
         contacts = resolve_contacts(cfg, facet_tags=facet_tags, voltages=V_by_contact)
         bcs = build_dd_dirichlet_bcs(
             spaces, msh, facet_tags, contacts, sc, ref_mat, N_raw_fn,
@@ -289,12 +340,16 @@ def run_bias_sweep(
         for fn in (spaces.psi, spaces.phi_n, spaces.phi_p):
             fn.x.scatter_forward()
         F_list_step = _build_F_list(V_by_contact) if has_schottky else F_list
-        return solve_nonlinear_block(
+        info = solve_nonlinear_block(
             F_list_step, [spaces.psi, spaces.phi_n, spaces.phi_p],
             bcs, prefix=f"{cfg['name']}_dd_{tag}_",
             petsc_options=snes_petsc_options,
+            damping_schedule=damping_schedule if damping_enabled else None,
+            snes_diagnostics=solve_records,
             cfg=cfg,
         )
+        _record_diagnostics(tag=tag, voltages=V_by_contact, info=info, solve_records=solve_records)
+        return info
 
     sweep_facet_info = None
     if sweep_contact is not None:
@@ -335,7 +390,10 @@ def run_bias_sweep(
     info = solve_at(voltages, fmt_tag(V_seed))
     if not info["converged"]:
         restore(snap)
-        raise RuntimeError(f"SNES failed at seed bias V={V_seed:+.4f} V")
+        raise BiasSweepFailure(
+            f"SNES failed at seed bias V={V_seed:+.4f} V",
+            snes_diagnostics=snes_diagnostics,
+        )
     last_info = info
     V_prev = V_seed
     record_iv(iv_rows, V_seed, spaces, sc, ref_mat,
@@ -413,13 +471,15 @@ def run_bias_sweep(
             try:
                 controller.on_failure()
             except StepTooSmall as exc:
-                raise RuntimeError(
-                    f"Bias ramp failed near V={V_try:+.4f} V: {exc}"
+                raise BiasSweepFailure(
+                    f"Bias ramp failed near V={V_try:+.4f} V: {exc}",
+                    snes_diagnostics=snes_diagnostics,
                 ) from exc
             if halvings > max_halvings:
-                raise RuntimeError(
+                raise BiasSweepFailure(
                     f"Bias ramp failed near V={V_try:+.4f} V after "
-                    f"{halvings} halvings (min_step={min_step})."
+                    f"{halvings} halvings (min_step={min_step}).",
+                    snes_diagnostics=snes_diagnostics,
                 )
 
     if bipolar_legs:
@@ -446,6 +506,7 @@ def run_bias_sweep(
         p_phys=p_hat * sc.C0,
         x_dof=x_dof, N_hat=N_hat_fn, scaling=sc,
         solver_info=last_info, iv=iv_rows, bias_contact=sweep_contact,
+        snes_diagnostics=snes_diagnostics,
     )
 
 
