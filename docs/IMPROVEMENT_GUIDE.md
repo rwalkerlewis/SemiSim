@@ -1138,6 +1138,49 @@ The engine is ready for a UI when all of these are green:
 
 ### [Unreleased]
 
+### [0.27.0]
+
+- **2026-05-30**, M19 precursor (3D MOSFET geometry, mesh
+  quality gate, equilibrium smoke) shipped (v0.27.0). Schema
+  additive minor bump v2.10.0 -> v2.11.0 (`mesh.quality_gate`
+  boolean default false plus `mesh.quality_thresholds` optional
+  override on both `oneOf` branches of `mesh`). ADR 0019
+  documents the source / drain region strategy (doping-only
+  differentiation; the 2D MOSFET precedent), the mesh-quality
+  thresholds calibrated to the as-shipped mesh (gmsh emits cells
+  up to ~2x the nominal MeshSize, so per-region edge_max sits at
+  ~2.3x the .geo's nominal h_bulk / h_ox), and the V&V scope
+  departure (no MMS variant; audit-only V&V via the equilibrium
+  verifier; same precedent as ADR 0015, ADR 0017, ADR 0018). New
+  module `semi/mesh_quality.py` exposes
+  `check_mesh_quality(mesh, cell_tags, *, thresholds=None) ->
+  MeshQualityReport`. `semi/mesh.py::build_mesh` runs the gate
+  after both the builtin and file ingest paths when
+  `mesh.quality_gate: true` and raises `MeshQualityError` on the
+  first violation. New benchmark `benchmarks/mosfet_3d_eq/`
+  ships a 3D planar n-MOSFET on a gmsh-sourced unstructured mesh
+  at equilibrium (V_GS = V_DS = V_BS = 0 V); hand-authored OCC
+  `.geo` at `fixtures/mosfet_3d.geo`, generated `.msh` at
+  `fixtures/mosfet_3d.msh`. Generated mesh: 210883 tets, 47386
+  vertices; equilibrium SNES converges in 1 Newton iteration to
+  function norm 3.35e-22 in ~5 s single-threaded on the dev
+  image. New verifier `semi/verification/mosfet_3d_eq.py`
+  exposes the five gates (n_max in S/D within factor 3 of N_D
+  peak, n_min in channel < 1e12 cm^-3, p_max in body within
+  10 % of N_A, charge neutrality < 1e15 cm^-3 in body bulk,
+  built-in junction psi delta >= 3 * V_t). New CI matrix entry
+  `mosfet_3d_eq` without `allow-failure`. Two scoped deviations
+  from the prompt are recorded in ADR 0019: L_y shipped at
+  0.5 um (prompt nominal 1 um) and the mesh size targets
+  h_ox = 3 nm, h_chan = 15 nm, h_bulk = 150 nm (prompt
+  1 / 10 / 100 nm); both root-cause to isotropic tet meshing of
+  the 5 nm oxide. Configs without `mesh.quality_gate` are bit-
+  identical to v0.26.0 on every existing benchmark (pn_1d_bias
+  anchor: J(V = 0.6 V) = 1.635e+03 A/m^2; the diode_velsat_1d,
+  diode_auger_1d, diode_fermi_dirac_1d, schottky_1d, zener_1d,
+  pn_1d_turnon, pn_1d_pulse, diode_sine_1d, rc_ac_sweep, and
+  resistor_3d anchors all continue to hold).
+
 ### [0.26.0]
 
 - **2026-05-14**, M18.1 bias-sweep SNES line-search stabilization

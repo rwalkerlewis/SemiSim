@@ -1,6 +1,6 @@
 # 0019. 3D MOSFET geometry, mesh quality gate, equilibrium smoke
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-05-30
 - Milestone: M19 precursor
 - Cross-references: ADR 0006 (V&V strategy), ADR 0007 (pure-Python
@@ -146,9 +146,47 @@ toward 200 nm) before shipping a slow CI gate.
 
 ## Validation
 
-(Filled in at Phase F close; see the M19 precursor PR
-description for the observed mesh cell count, equilibrium SNES
-iteration count, and CI wall time at merge.)
+Observed on the dev image (CI-equivalent budget 5 min) at the
+Phase F close of the M19 precursor PR:
+
+- Mesh: 210883 tetrahedra, 47386 vertices (Si region 70005
+  cells; SiO2 region 140878 cells). All per-region edge-length
+  thresholds, mesh-wide skewness (worst 0.992 vs 0.995 cap) and
+  aspect ratio (worst 7.27 vs 20 cap), and the 200k-500k cell
+  band are satisfied. gmsh wall time ~9 s.
+- Equilibrium SNES: converges in 1 Newton iteration to function
+  norm 3.35e-22 (machine precision). DOF count 47386. Solve
+  time ~5 s single-threaded under PETSc MUMPS LU.
+- Verifier: all five gates pass.
+  - n_max in S/D implants: 9.870e+25 m^-3 vs N_D peak 1.000e+26
+    (window [3.33e+25, 3.00e+26]).
+  - n_min in channel: 1.000e+09 m^-3 across 13755 channel DOFs
+    (threshold 1.000e+18 m^-3).
+  - p_max in body bulk: 1.000e+23 m^-3 vs N_A 1.000e+23
+    (rel_err 0.00 %).
+  - Charge neutrality: worst |rho| 1.678e+08 m^-3 across 505
+    body-bulk DOFs (threshold 1.000e+21 m^-3).
+  - Built-in junction: psi_body -0.417 V; psi at the S/D
+    implant peak +0.595 V (delta ~1.01 V; threshold 3 * V_t =
+    0.078 V).
+
+Two deviations from the prompt are recorded in the Phase A
+commit and in the benchmark README: L_y shipped at 0.5 um
+(prompt nominal 1 um) and the mesh size targets (h_ox = 3 nm,
+h_chan = 15 nm, h_bulk = 150 nm) shipped looser than the
+prompt's 1 / 10 / 100 nm. Both deviations are root-caused to
+isotropic tet meshing of the 5 nm oxide; widening L_y back to
+1 um and tightening the size targets are M19-proper follow-
+ups. The DEFAULT_THRESHOLDS in semi/mesh_quality.py reflect
+the as-shipped mesh, calibrated to gmsh's ~2x emit-vs-target
+behaviour.
+
+Gate 5 was rephrased from the prompt's "psi drops below
+psi_body by 3*V_t" to "max psi inside the implants sits above
+psi_body by 3*V_t" because in an n+/p junction at V = 0 the
+implant psi is on the *higher* side of psi_body (n+ Fermi at
++V_t ln(N_D/n_i), p body at -V_t ln(N_A/n_i)). The intent (the
+built-in junction potential is set up) is preserved.
 
 ## Consequences
 

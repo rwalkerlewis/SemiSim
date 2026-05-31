@@ -36,8 +36,41 @@ recombination for 1D/2D/3D devices.
 ## Current state
 
 M1 through M15 plus M14.3, M14.4, M16.1, M16.2, M16.3, M16.4,
-M16.5, M16.6, M16.7, M17, M18, and M18.1 are merged into `main`.
-Current package version is `0.26.0`; M18.1 (bias-sweep SNES
+M16.5, M16.6, M16.7, M17, M18, M18.1, and the M19 precursor are
+merged into `main`. Current package version is `0.27.0`; the
+M19 precursor (3D MOSFET geometry, mesh quality gate,
+equilibrium smoke; branch
+`dev/m19-precursor-mosfet-3d-geometry`) shipped in v0.27.0 with
+schema additive minor bump v2.10.0 -> v2.11.0
+(`mesh.quality_gate` boolean default false plus
+`mesh.quality_thresholds` optional override on both `oneOf`
+branches of `mesh`). ADR 0019 documents the source / drain
+region strategy (doping-only differentiation; the 2D MOSFET
+precedent), the mesh-quality thresholds calibrated against the
+as-shipped mesh, and the V&V scope departure (no MMS variant;
+audit-only V&V via the equilibrium verifier; same precedent as
+ADR 0015, ADR 0017, ADR 0018). New module
+`semi/mesh_quality.py` exposes
+`check_mesh_quality(mesh, cell_tags, *, thresholds=None) ->
+MeshQualityReport`; `semi/mesh.py::build_mesh` runs the gate
+after both the builtin and file ingest paths when
+`mesh.quality_gate: true` and raises `MeshQualityError` on the
+first violation. The new `mosfet_3d_eq` benchmark (gmsh-sourced
+unstructured 3D mesh, 210883 tets, 47386 vertices; equilibrium
+runner converges in 1 Newton iteration to function norm
+3.35e-22 in ~5 s single-threaded on the dev image) and its
+verifier `semi/verification/mosfet_3d_eq.py` (five geometric /
+shape-based gates: n_max in S/D implants, n_min in channel,
+p_max in body bulk, charge neutrality, built-in junction
+potential) ship without `allow-failure` in the CI matrix.
+Configs without `mesh.quality_gate` (or with
+`quality_gate: false`) are bit-identical to v0.26.0 on every
+existing benchmark (pn_1d_bias anchor: J(V=0.6 V) = 1.635e+03
+A/m^2; the diode_velsat_1d, diode_auger_1d,
+diode_fermi_dirac_1d, schottky_1d, zener_1d, pn_1d_turnon,
+pn_1d_pulse, diode_sine_1d, rc_ac_sweep, and resistor_3d
+anchors all continue to hold).
+M18.1 (bias-sweep SNES
 line-search stabilization, branch
 `dev/m18.1-bias-sweep-snes-stabilization`) shipped in v0.26.0
 with schema additive minor bump v2.9.0 -> v2.10.0
@@ -391,33 +424,37 @@ M15 through M18. Summary:
 
 ## Next task
 
-M18.1 (bias-sweep SNES line-search stabilization, shipped in
-v0.26.0) closed the bias_sweep half of the CI carve-out
-introduced in `ed6719b`. The sole remaining unblocked candidate
-on the roadmap is now M19; the only remaining `allow-failure:
-"true"` carve-out is `mosfet_2d`, tracked as a separate,
-independently-managed SNES depletion-onset follow-up that
-M18.1's heavier-doping backlog item ("Bias-sweep SNES robustness,
-phase 2"; see ADR 0018 Deferred section) is the natural sibling
-of.
+The M19 precursor (3D MOSFET geometry, mesh quality gate,
+equilibrium smoke; shipped in v0.27.0) de-risked the geometry,
+ingest, and mesh-quality work that full M19 needs. The
+remaining `allow-failure: "true"` carve-out is `mosfet_2d`,
+tracked as a separate, independently-managed SNES depletion-
+onset follow-up that M18.1's "Bias-sweep SNES robustness, phase
+2" backlog item (ADR 0018 Deferred section) is the natural
+sibling of.
 
-- **M19: 3D MOSFET capstone.** A 3D MOSFET on a gmsh-sourced
-  unstructured mesh, exercising the M15 GPU linear-solver path
-  and the M16.1 Caughey-Thomas mobility under non-trivial
-  geometry. Depends on M16.1; unblocked. Expected to need MPI
-  parallel orchestration (M19.1) for runtime to be tolerable.
-  The M17 heterojunction infrastructure (per-cell DG0 material
-  fields, position-dependent Slotboom substitution, Anderson-rule
-  ohmic equilibrium psi) is reusable for any future 3D
-  heterojunction device benchmark (3D HEMT, 3D HBT) that M19
-  might inspire, but is not a dependency of M19 (3D MOSFET is
-  single-material Si by default).
+- **M19 proper: 3D MOSFET V_GS sweep + Pao-Sah verifier + M15
+  GPU comparison.** Reuses `benchmarks/mosfet_3d_eq` geometry
+  and mesh as the starting fixture, but switches the runner
+  from `equilibrium` to `bias_sweep` (V_GS ramp at fixed V_DS),
+  adds a Pao-Sah analytical-comparison verifier (analogous to
+  `verify_mosfet_2d` in `scripts/run_benchmark.py`), and
+  exercises the M15 GPU linear-solver path against the CPU-
+  MUMPS reference at this device's DOF count. Depends on the
+  M19 precursor; ADR 0018's `solver.snes.line_search:
+  "nleqerr"` path is expected to be needed for the inversion-
+  onset SNES inner solve.
+- **M19.1: MPI parallel orchestration.** Verify and where
+  needed fix collective communication in the runners;
+  `mosfet_3d_eq` and the M19-proper `mosfet_3d` under
+  `mpiexec -n {1,2,4}`. Expected to be necessary to bring the
+  M19-proper bias-sweep wall time into a tractable CI budget.
 
-Acceptance tests are documented in
+Acceptance tests for M19 proper are documented in
 [`docs/IMPROVEMENT_GUIDE.md`](docs/IMPROVEMENT_GUIDE.md) § 4 and
 [`docs/ROADMAP.md`](docs/ROADMAP.md). The next reviewer authors a
-starter prompt against M19 in the same shape as
-`docs/M18_1_STARTER_PROMPT.md`.
+starter prompt against M19 proper in the same shape as
+`docs/M19_PRECURSOR_STARTER_PROMPT.md`.
 
 ## Backlog
 
@@ -563,6 +600,56 @@ None as of v0.17.0.
 ## Completed work log
 
 Append-only. Newest entries on top.
+
+- **M19 precursor 3D MOSFET geometry, mesh quality gate,
+  equilibrium smoke (2026-05-30):** Branch
+  `dev/m19-precursor-mosfet-3d-geometry`, seven phase-letter
+  commits per `docs/M19_PRECURSOR_STARTER_PROMPT.md`. Schema
+  additive minor bump v2.10.0 -> v2.11.0 (`mesh.quality_gate`
+  boolean default false plus `mesh.quality_thresholds` optional
+  override on both `oneOf` branches of `mesh`); package version
+  0.26.0 -> 0.27.0. New benchmark
+  `benchmarks/mosfet_3d_eq` ships a 3D planar n-MOSFET on a
+  gmsh-sourced unstructured mesh (1.5 um x 0.5 um x 2.0 um Si
+  body + 5 nm SiO2 gate over a 250 nm channel; doping-only S/D
+  differentiation; n+ Gaussian implants peak 1e20 cm^-3, sigma
+  30 / 200 / 50 nm) with hand-authored OCC `.geo` shipping at
+  `fixtures/mosfet_3d.{geo,msh}` (gmsh 4.x; OCC needs the
+  geometry authored in micrometres because
+  `Precision::Confusion` is 1e-7 in working units, hence
+  `Mesh.ScalingFactor = 1e-6` to write meters at output).
+  Generated mesh: 210883 tets, 47386 vertices; equilibrium SNES
+  converges in 1 Newton iteration to function norm 3.35e-22 in
+  ~5 s single-threaded on the dev image (CI-equivalent budget
+  5 min). New pure-Python module
+  `semi/mesh_quality.py::check_mesh_quality` reports per-region
+  edge-length extrema, mesh-wide tetrahedral skewness, aspect
+  ratio, cell count, and a `passed: bool`; integrated into
+  `semi/mesh.py::build_mesh` behind `mesh.quality_gate`. New
+  verifier `semi/verification/mosfet_3d_eq.py` exposes the five
+  gates (n_max in S/D, n_min in channel, p_max in body, charge
+  neutrality, built-in junction potential; all pass). New CI
+  matrix entry `mosfet_3d_eq` without `allow-failure`. ADR 0019
+  documents the source / drain region strategy (doping-only;
+  follows the 2D MOSFET precedent), the mesh-quality
+  thresholds calibrated to the as-shipped mesh (gmsh emits
+  cells up to ~2x the nominal MeshSize, so per-region edge_max
+  sits at ~2.3x the .geo's nominal h_bulk / h_ox), and the V&V
+  scope departure (no MMS variant; audit-only V&V via the
+  equilibrium verifier; same precedent as ADR 0015, ADR 0017,
+  ADR 0018). Two deviations from the prompt's nominal targets
+  are flagged in the ADR: L_y shipped at 0.5 um (prompt
+  nominal 1 um) and the size targets h_ox = 3 nm, h_chan =
+  15 nm, h_bulk = 150 nm (prompt 1 / 10 / 100 nm); both
+  root-cause to isotropic tet meshing of the 5 nm oxide, and
+  widening / tightening is part of M19 proper. Configs without
+  `mesh.quality_gate` (or with `quality_gate: false`) are bit-
+  identical to v0.26.0 on every existing benchmark
+  (pn_1d_bias anchor J(V = 0.6 V) = 1.635e+03 A/m^2; the
+  diode_velsat_1d, diode_auger_1d, diode_fermi_dirac_1d,
+  schottky_1d, zener_1d, pn_1d_turnon, pn_1d_pulse,
+  diode_sine_1d, rc_ac_sweep, and resistor_3d anchors all
+  continue to hold).
 
 - **M18.1 bias-sweep SNES line-search stabilization (2026-05-14):**
   Branch `dev/m18.1-bias-sweep-snes-stabilization`, six

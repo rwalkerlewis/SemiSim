@@ -30,9 +30,62 @@ transient time-varying contact voltage `voltage_t`; shipped with
 and `regions[].heterojunction`; shipped with `[0.24.0]` below),
 **2.9.0** (additive minor; M18 adaptive time-step controller
 `solver.adaptive` for the transient runner; shipped with
-`[0.25.0]` below), and **2.10.0** (additive minor; M18.1
+`[0.25.0]` below), **2.10.0** (additive minor; M18.1
 `solver.snes.line_search` enum on the bias_sweep coupled DD
-block; shipped with `[0.26.0]` below).
+block; shipped with `[0.26.0]` below), and **2.11.0**
+(additive minor; M19 precursor `mesh.quality_gate` boolean and
+`mesh.quality_thresholds` optional override on both mesh
+oneOf branches; shipped with `[0.27.0]` below).
+
+## [0.27.0] - 2026-05-30
+
+### Added
+
+- **M19 precursor: 3D MOSFET geometry, mesh quality gate,
+  equilibrium smoke.** Schema additive minor bump v2.10.0 ->
+  v2.11.0 adds `mesh.quality_gate` (boolean, default false) and
+  `mesh.quality_thresholds` (optional override) on both the
+  file and builtin mesh oneOf branches. When `quality_gate` is
+  true, `semi/mesh.py::build_mesh` runs
+  `semi/mesh_quality.check_mesh_quality` after ingest and
+  raises `MeshQualityError` on any per-region edge-length,
+  mesh-wide tetrahedral skewness, aspect-ratio, cell-count, or
+  global-min-edge violation. The default false branch preserves
+  byte-identity on every existing benchmark (pn_1d_bias anchor
+  J(V=0.6 V) = 1.635e+03 A/m^2; diode_velsat_1d, diode_auger_1d,
+  diode_fermi_dirac_1d, schottky_1d, zener_1d, pn_1d_turnon,
+  pn_1d_pulse, diode_sine_1d, rc_ac_sweep, resistor_3d anchors
+  all hold).
+- **New module `semi/mesh_quality.py`** exposes
+  `check_mesh_quality(mesh, cell_tags, *, thresholds=None) ->
+  MeshQualityReport`. Pure-Python at import time (per ADR
+  0007); numpy and dolfinx are lazy-imported inside the helper
+  bodies. `DEFAULT_THRESHOLDS` are calibrated to the as-shipped
+  `mosfet_3d_eq` mesh.
+- **New benchmark `benchmarks/mosfet_3d_eq/`** ships a 3D
+  planar n-MOSFET on a gmsh-sourced unstructured mesh (210883
+  tets, 47386 vertices) at equilibrium (V_GS = V_DS = V_BS = 0
+  V). Hand-authored OCC `.geo` at `fixtures/mosfet_3d.geo`
+  (gmsh 4.x); generated `.msh` at `fixtures/mosfet_3d.msh`.
+  Solve time ~5 s single-threaded on the dev image; the
+  equilibrium SNES converges in 1 Newton iteration to function
+  norm 3.35e-22.
+- **New verifier `semi/verification/mosfet_3d_eq.py`** with
+  five geometric / shape-based gates: (1) n_max in S/D
+  implants within factor 3 of N_D peak, (2) n_min in channel
+  below 1e12 cm^-3, (3) p_max in body bulk within 10 % of N_A,
+  (4) charge neutrality |n - p - N_D + N_A| below 1e15 cm^-3
+  in body bulk, (5) max psi inside S/D implants at least
+  3 * V_t above psi_body. All five pass on the shipped mesh.
+- **New CI matrix entry `mosfet_3d_eq`** in
+  `.github/workflows/ci.yml::docker-fem-benchmarks`. No
+  `allow-failure`.
+- **ADR 0019** documents the source / drain region strategy
+  (doping-only differentiation; the 2D MOSFET precedent), the
+  mesh-quality thresholds, and the V&V scope departure
+  (no MMS variant; audit-only V&V via the equilibrium
+  verifier; same precedent as ADR 0015, ADR 0017, ADR 0018).
+- **Package version bump 0.26.0 -> 0.27.0.**
 
 ## [0.26.0] - 2026-05-14
 

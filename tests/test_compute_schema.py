@@ -59,9 +59,13 @@ def test_supported_minor_resets_for_v2():
     transient time-varying contact voltage); M17 bumped it to 8
     (v2.8.0 heterojunction / position-dependent material parameters);
     M18 bumped it to 9 (v2.9.0 adaptive time-step controller for the
-    transient runner); the M14.3 reset semantics survive (no major
-    bump means no minor reset)."""
-    assert schema.SCHEMA_SUPPORTED_MINOR == 9
+    transient runner); M18.1 bumped it to 10 (v2.10.0
+    solver.snes.line_search enum on the bias_sweep coupled DD
+    block); the M19 precursor bumped it to 11 (v2.11.0
+    mesh.quality_gate boolean + mesh.quality_thresholds optional
+    override); the M14.3 reset semantics survive (no major bump
+    means no minor reset)."""
+    assert schema.SCHEMA_SUPPORTED_MINOR == 11
 
 
 def test_schema_version_140_accepted_with_deprecation(minimal_cfg):
