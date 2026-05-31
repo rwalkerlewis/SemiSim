@@ -43,14 +43,30 @@ def build_mesh(cfg: dict[str, Any]):
         msh = _build_builtin(mesh_cfg, cfg["dimension"])
         cell_tags = _tag_regions(msh, mesh_cfg.get("regions_by_box", []))
         facet_tags = _tag_facets(msh, mesh_cfg.get("facets_by_plane", []))
-        return msh, cell_tags, facet_tags
-    if source == "file":
-        return _build_from_file(
+    elif source == "file":
+        msh, cell_tags, facet_tags = _build_from_file(
             mesh_cfg,
             dim=int(cfg["dimension"]),
             source_dir=cfg.get("_source_dir"),
         )
-    raise ValueError(f"Unknown mesh source {source!r}")
+    else:
+        raise ValueError(f"Unknown mesh source {source!r}")
+
+    if mesh_cfg.get("quality_gate", False):
+        # M19 precursor: post-ingest mesh-quality gate. Lazy import
+        # keeps `semi.mesh_quality` out of the pure-Python boundary.
+        from .mesh_quality import MeshQualityError, check_mesh_quality
+        report = check_mesh_quality(
+            msh, cell_tags,
+            thresholds=mesh_cfg.get("quality_thresholds"),
+        )
+        if not report.passed:
+            raise MeshQualityError(
+                "mesh failed quality gate (ADR 0019):\n  - "
+                + "\n  - ".join(report.violations)
+            )
+
+    return msh, cell_tags, facet_tags
 
 
 def _build_builtin(mesh_cfg: dict, dim: int):
