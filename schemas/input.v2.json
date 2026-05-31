@@ -104,6 +104,35 @@
               "examples": [
                 "gmsh"
               ]
+            },
+            "quality_gate": {
+              "type": "boolean",
+              "default": false,
+              "description": "M19 precursor (ADR 0019): when true, semi/mesh_quality.check_mesh_quality runs after ingest and the runner raises MeshQualityError on any threshold violation. Default false preserves byte-identity on every existing benchmark."
+            },
+            "quality_thresholds": {
+              "type": "object",
+              "description": "Optional override for semi/mesh_quality.DEFAULT_THRESHOLDS. Any subset of the keys below may be set; absent keys retain their defaults.",
+              "properties": {
+                "skewness_max":     { "type": "number", "minimum": 0, "maximum": 1 },
+                "aspect_ratio_max": { "type": "number", "minimum": 1 },
+                "cell_count_min":   { "type": "integer", "minimum": 1 },
+                "cell_count_max":   { "type": "integer", "minimum": 1 },
+                "edge_min_global":  { "type": "number", "minimum": 0 },
+                "per_group": {
+                  "type": "object",
+                  "description": "Per-physical-group overrides keyed by integer tag (as a string in JSON). Each value is an object with optional 'edge_max' (number, meters) and optional 'name' (string).",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "edge_max": { "type": "number", "minimum": 0 },
+                      "name":     { "type": "string" }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -235,6 +264,35 @@
                 },
                 "additionalProperties": false
               }
+            },
+            "quality_gate": {
+              "type": "boolean",
+              "default": false,
+              "description": "M19 precursor (ADR 0019): when true, semi/mesh_quality.check_mesh_quality runs after build and the runner raises MeshQualityError on any threshold violation. Default false preserves byte-identity on every existing builtin-mesh benchmark."
+            },
+            "quality_thresholds": {
+              "type": "object",
+              "description": "Optional override for semi/mesh_quality.DEFAULT_THRESHOLDS. Any subset of the keys below may be set; absent keys retain their defaults.",
+              "properties": {
+                "skewness_max":     { "type": "number", "minimum": 0, "maximum": 1 },
+                "aspect_ratio_max": { "type": "number", "minimum": 1 },
+                "cell_count_min":   { "type": "integer", "minimum": 1 },
+                "cell_count_max":   { "type": "integer", "minimum": 1 },
+                "edge_min_global":  { "type": "number", "minimum": 0 },
+                "per_group": {
+                  "type": "object",
+                  "description": "Per-physical-group overrides keyed by integer tag (as a string in JSON). Each value is an object with optional 'edge_max' (number, meters) and optional 'name' (string).",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "edge_max": { "type": "number", "minimum": 0 },
+                      "name":     { "type": "string" }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false

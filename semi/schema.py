@@ -181,7 +181,21 @@ ENGINE_SUPPORTED_SCHEMA_MAJOR = max(ENGINE_SUPPORTED_SCHEMA_MAJORS)
 #                existing benchmark (SNES atol of 1e-7 dominates the
 #                Newton trajectory choice at converged solutions).
 #                v2.0.0 through v2.9.0 inputs continue to validate.
-SCHEMA_SUPPORTED_MINOR = 10
+#   M19 precursor (2.11.0): added mesh.quality_gate (boolean, default
+#                false) and mesh.quality_thresholds (optional sub-
+#                object) on both the file and builtin mesh oneOf
+#                branches. When quality_gate is true, build_mesh runs
+#                semi/mesh_quality.check_mesh_quality after ingest and
+#                raises MeshQualityError on any threshold violation
+#                (per-region edge length, mesh-wide skewness / aspect
+#                ratio, cell count band; ADR 0019). The
+#                quality_thresholds sub-object overlays any subset of
+#                the defaults in semi/mesh_quality.DEFAULT_THRESHOLDS.
+#                Default-false preserves byte-identity on every
+#                existing benchmark; v2.0.0 through v2.10.0 inputs
+#                continue to validate. The mosfet_3d_eq benchmark
+#                ships with quality_gate: true.
+SCHEMA_SUPPORTED_MINOR = 11
 
 
 @lru_cache(maxsize=8)
@@ -618,6 +632,14 @@ def _fill_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
     """Fill in sensible defaults for optional sections."""
     cfg.setdefault("coordinate_system", "cartesian")
     _validate_coordinate_system(cfg)
+    # M19 precursor (schema 2.11.0; ADR 0019): mesh.quality_gate
+    # defaults to false on every mesh source so existing benchmarks
+    # are byte-identical. quality_thresholds is optional; absent
+    # means the semi/mesh_quality.DEFAULT_THRESHOLDS apply when the
+    # gate is enabled.
+    mesh_cfg = cfg.get("mesh")
+    if isinstance(mesh_cfg, dict):
+        mesh_cfg.setdefault("quality_gate", False)
     phys = cfg.setdefault("physics", {})
     phys.setdefault("temperature", 300.0)
     rec = phys.setdefault("recombination", {})
