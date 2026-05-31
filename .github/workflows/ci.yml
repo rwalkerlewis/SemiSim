@@ -213,6 +213,15 @@ jobs:
             args: resistor_3d --input benchmarks/resistor_3d/resistor.json
           - name: resistor_3d_gmsh
             args: resistor_3d --input benchmarks/resistor_3d/resistor_gmsh.json
+          # M19 precursor: 3D planar n-MOSFET, equilibrium only.
+          # gmsh-sourced unstructured mesh (210k tets), mesh quality
+          # gate (semi/mesh_quality.py; ADR 0019), and the five
+          # geometric / shape-based gates in
+          # semi/verification/mosfet_3d_eq.py. Solve time on the
+          # dev image is ~5 s single-threaded (well under the
+          # 5-minute CI budget). Ships without allow-failure.
+          - name: mosfet_3d_eq
+            args: mosfet_3d_eq
           # examples catalogue (v0.23.x): practical-device starting
           # points exercising the M16 physics catalogue. Smoke gates
           # (run completion, finite I-V, qualitative ordering); the

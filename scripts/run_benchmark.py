@@ -1288,6 +1288,15 @@ def verify_mosfet_2d(result) -> list[tuple[str, bool, str]]:
     return checks
 
 
+@register("mosfet_3d_eq")
+def verify_mosfet_3d_eq(result) -> list[tuple[str, bool, str]]:
+    """M19 precursor equilibrium smoke verifier; ADR 0019."""
+    from semi.verification.mosfet_3d_eq import (
+        verify_mosfet_3d_eq as _impl,
+    )
+    return _impl(result)
+
+
 def plot_mosfet_2d(result, out_dir: Path) -> list[Path]:
     """Render the I_D vs V_GS curve against the Pao-Sah analytical reference."""
     paths: list[Path] = []
