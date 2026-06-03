@@ -165,7 +165,6 @@ def run_bias_sweep(
     grow_factor = float(cont.get("grow_factor", 1.5))
     solver_cfg = cfg.get("solver", {})
     diagnostics_enabled = bool(solver_cfg.get("diagnostics", False))
-    line_search_type = str(solver_cfg.get("line_search", "bt"))
     damping_schedule = solver_cfg.get("damping_schedule") or {}
     damping_enabled = bool(damping_schedule.get("enabled", False))
 
@@ -175,6 +174,22 @@ def run_bias_sweep(
     # (pn_1d_bias, pn_1d_bias_reverse) can keep machine-tight convergence
     # required to pass <5% / <15% current-continuity gates.
     snes_opts = solver_cfg.get("snes", {}) or {}
+
+    # M18.1 / ADR 0018: SNES line-search type for the coupled DD solve.
+    # Two equivalent config locations are honoured with solver.snes.line_search
+    # (ADR 0018; used by nmos_idvgs) taking precedence over solver.line_search
+    # (the bias_sweep diagnostics field). Both default to `bt`, which is
+    # byte-identical to v0.25.0 across every existing benchmark. MOSFET-like
+    # configs that stall the bt merit function (nmos_idvgs at depletion-to-
+    # inversion onset under FD statistics) opt into `nleqerr` for the
+    # Deuflhard 2004 natural-monotonicity test. The resolved value is applied
+    # post-construction via SNESLineSearch.setType() (apply_snes_line_search),
+    # because dolfinx 0.10 drops snes_linesearch_* options pushed at build time.
+    line_search_type = str(
+        snes_opts.get("line_search") or solver_cfg.get("line_search") or "bt"
+    )
+    snes_line_search = line_search_type
+
     snes_petsc_options = {
         "snes_rtol": float(snes_opts.get("rtol", 1.0e-10)),
         "snes_atol": float(snes_opts.get("atol", 1.0e-7)),
@@ -182,13 +197,6 @@ def run_bias_sweep(
         "snes_max_it": int(snes_opts.get("max_it", 100)),
         "snes_linesearch_type": line_search_type,
     }
-    # M18.1 / ADR 0018: SNES line-search type for the coupled DD solve.
-    # Default `bt` reproduces the M12-era behaviour exactly (byte-identical
-    # to v0.25.0 across every existing benchmark). MOSFET-like configs that
-    # stall the bt merit function (nmos_idvgs at depletion-to-inversion
-    # onset under FD statistics) opt into `nleqerr` for the Deuflhard 2004
-    # natural-monotonicity test.
-    snes_line_search = str(snes_opts.get("line_search", "bt"))
 
     snes_diagnostics = (
         {

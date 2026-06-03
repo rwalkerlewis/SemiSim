@@ -4,8 +4,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from semi.schema import validate
 
 CFG_PATH = (Path(__file__).parent.parent

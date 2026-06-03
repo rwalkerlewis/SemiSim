@@ -10,7 +10,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
 from dolfinx.io import gmsh as gmshio
 from mpi4py import MPI
 

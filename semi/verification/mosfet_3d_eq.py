@@ -29,7 +29,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 # Geometry constants matching the Phase A .geo (in meters).
 L_X       = 1.5e-6
 L_Y       = 5.0e-7
