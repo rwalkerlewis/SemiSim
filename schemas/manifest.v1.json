@@ -243,6 +243,29 @@
         "description": "A single warning message string.",
         "type": "string"
       }
+    },
+    "logs": {
+      "description": "Optional structured log or diagnostics artifacts written alongside the run manifest.",
+      "type": "array",
+      "items": {
+        "description": "Metadata for a single auxiliary log or diagnostics file.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "path"
+        ],
+        "properties": {
+          "name": {
+            "description": "Human-readable artifact name, e.g. 'snes_diagnostics'.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Path to the artifact relative to the run directory root.",
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }

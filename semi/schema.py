@@ -180,6 +180,15 @@ ENGINE_SUPPORTED_SCHEMA_MAJOR = max(ENGINE_SUPPORTED_SCHEMA_MAJORS)
 #                default "bt" is bit-identical to v0.25.0 on every
 #                existing benchmark (SNES atol of 1e-7 dominates the
 #                Newton trajectory choice at converged solutions).
+#                Same 2.10.0 minor also added solver.diagnostics (bool,
+#                default false), solver.line_search (bt | nleqerr | cp |
+#                basic | l2, default bt), and solver.damping_schedule
+#                (enabled, lambda_start, lambda_end, decay_iters;
+#                default enabled false) for the bias_sweep runner. When
+#                diagnostics is true, the runner records SNES
+#                per-iteration norms and line-search reasons to a run
+#                artifact. Non-bias_sweep solver types reject these
+#                fields at validate time.
 #                v2.0.0 through v2.9.0 inputs continue to validate.
 #   M19 precursor (2.11.0): added mesh.quality_gate (boolean, default
 #                false) and mesh.quality_thresholds (optional sub-
@@ -580,6 +589,78 @@ def _validate_adaptive_dt(cfg: dict[str, Any]) -> None:
             )
 
 
+def _validate_bias_sweep_solver_fields(cfg: dict[str, Any]) -> None:
+    """
+    Cross-field validation for M18.1 bias_sweep-only solver fields.
+
+    `solver.line_search` and `solver.diagnostics` are additive schema
+    fields consumed only by `semi.runners.bias_sweep`. Reject them on
+    every other solver type so users see the mismatch at validate time
+    rather than after a FEM solve starts.
+    """
+    solver = cfg.get("solver", {})
+    solver_type = solver.get("type", "equilibrium")
+    if solver_type == "bias_sweep":
+        return
+    if "line_search" in solver:
+        raise SchemaError(
+            f"solver.line_search is only consumed by the bias_sweep runner "
+            f"(solver.type='bias_sweep'); got solver.type={solver_type!r}. "
+            f"Remove solver.line_search or change solver.type (M18.1)."
+        )
+    if "diagnostics" in solver:
+        raise SchemaError(
+            f"solver.diagnostics is only consumed by the bias_sweep runner "
+            f"(solver.type='bias_sweep'); got solver.type={solver_type!r}. "
+            f"Remove solver.diagnostics or change solver.type (M18.1)."
+        )
+    if "damping_schedule" in solver:
+        raise SchemaError(
+            f"solver.damping_schedule is only consumed by the bias_sweep runner "
+            f"(solver.type='bias_sweep'); got solver.type={solver_type!r}. "
+            f"Remove solver.damping_schedule or change solver.type (M18.1)."
+        )
+
+
+def _validate_damping_schedule(cfg: dict[str, Any]) -> None:
+    """Cross-field validation for solver.damping_schedule (M18.1)."""
+    solver = cfg.get("solver", {})
+    damping = solver.get("damping_schedule")
+    if damping is None or not damping.get("enabled", False):
+        return
+    if "lambda_start" not in damping:
+        raise SchemaError(
+            "solver.damping_schedule.enabled is true; "
+            "solver.damping_schedule.lambda_start is required (M18.1)."
+        )
+    if "lambda_end" not in damping:
+        raise SchemaError(
+            "solver.damping_schedule.enabled is true; "
+            "solver.damping_schedule.lambda_end is required (M18.1)."
+        )
+    if "decay_iters" not in damping:
+        raise SchemaError(
+            "solver.damping_schedule.enabled is true; "
+            "solver.damping_schedule.decay_iters is required (M18.1)."
+        )
+    lambda_start = float(damping["lambda_start"])
+    lambda_end = float(damping["lambda_end"])
+    if not (0.0 < lambda_start <= 1.0):
+        raise SchemaError(
+            f"solver.damping_schedule.lambda_start ({lambda_start:g}) must lie in "
+            "(0, 1] (M18.1)."
+        )
+    if not (0.0 < lambda_end <= 1.0):
+        raise SchemaError(
+            f"solver.damping_schedule.lambda_end ({lambda_end:g}) must lie in "
+            "(0, 1] (M18.1)."
+        )
+    if int(damping["decay_iters"]) < 1:
+        raise SchemaError(
+            "solver.damping_schedule.decay_iters must be >= 1 (M18.1)."
+        )
+
+
 _TUNNELING_DEFAULTS: dict[str, Any] = {
     "bbt": False,
     "tat": False,
@@ -700,6 +781,15 @@ def _fill_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
     solver.setdefault("atol", 1.0e-10)
     solver.setdefault("rtol", 1.0e-8)
     solver.setdefault("damping", 1.0)
+    if solver.get("type") == "bias_sweep":
+        solver.setdefault("diagnostics", False)
+        solver.setdefault("line_search", "bt")
+        damping = solver.get("damping_schedule")
+        if isinstance(damping, dict):
+            damping.setdefault("enabled", False)
+            damping.setdefault("lambda_start", 1.0)
+            damping.setdefault("lambda_end", 1.0)
+            damping.setdefault("decay_iters", 1)
     ls = solver.setdefault("linear_solver", {})
     ls.setdefault("ksp_type", "preonly")
     ls.setdefault("pc_type", "lu")
@@ -715,6 +805,8 @@ def _fill_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
     _validate_compute(cfg)
     _validate_voltage_t(cfg)
     _validate_adaptive_dt(cfg)
+    _validate_bias_sweep_solver_fields(cfg)
+    _validate_damping_schedule(cfg)
 
     out = cfg.setdefault("output", {})
     out.setdefault("directory", "./results")

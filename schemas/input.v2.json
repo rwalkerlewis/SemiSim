@@ -1241,6 +1241,53 @@
           },
           "additionalProperties": false
         },
+        "diagnostics": {
+          "type": "boolean",
+          "description": "Bias-sweep SNES diagnostics switch (M18.1). When true, the bias_sweep runner records per-Newton residual norms, SNES converged reasons, and line-search reasons to `snes_diagnostics.json` in the run artifact. Only consumed by the bias_sweep runner; other solver types reject the field at validate time.",
+          "default": false
+        },
+        "line_search": {
+          "type": "string",
+          "enum": [
+            "bt",
+            "nleqerr",
+            "cp",
+            "basic",
+            "l2"
+          ],
+          "description": "PETSc SNES line-search type for the bias_sweep runner (M18.1). Default `bt` preserves the shipped path; `nleqerr`, `cp`, `basic`, and `l2` are opt-in stabilization candidates for difficult gate sweeps. Only consumed by the bias_sweep runner; other solver types reject the field at validate time.",
+          "default": "bt"
+        },
+        "damping_schedule": {
+          "type": "object",
+          "title": "Bias-sweep SNES line-search damping schedule (M18.1)",
+          "description": "Optional damping schedule for the bias_sweep SNES line search. When `enabled: true`, the runner ramps the PETSc `snes_linesearch_damping` factor from `lambda_start` to `lambda_end` over `decay_iters` Newton iterations. Only consumed by the bias_sweep runner; other solver types reject the field at validate time.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Master switch for the damping schedule. When false (or the block is absent), no per-Newton damping override is applied.",
+              "default": false
+            },
+            "lambda_start": {
+              "type": "number",
+              "exclusiveMinimum": 0.0,
+              "maximum": 1.0,
+              "description": "Initial line-search damping factor at Newton iteration 0. Required when enabled is true."
+            },
+            "lambda_end": {
+              "type": "number",
+              "exclusiveMinimum": 0.0,
+              "maximum": 1.0,
+              "description": "Final line-search damping factor once the schedule has fully decayed. Required when enabled is true."
+            },
+            "decay_iters": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Number of Newton iterations over which to ramp from `lambda_start` to `lambda_end`. Required when enabled is true."
+            }
+          },
+          "additionalProperties": false
+        },
         "max_iterations": {
           "type": "integer",
           "description": "Maximum SNES iterations per Newton solve.",

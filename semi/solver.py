@@ -172,6 +172,57 @@ def _install_jacobian_shift(snes, epsilon: float) -> None:
     snes.setJacobian(shifted_jacobian, J_mat, P_mat)
 
 
+def _install_snes_monitor(snes, diagnostics: list[dict[str, Any]] | None) -> None:
+    """Attach a Python SNES monitor that records plain JSON-serialisable data."""
+    if diagnostics is None:
+        return
+
+    def _monitor(snes_, its, fnorm):
+        diagnostics.append(
+            {
+                "iteration": int(its),
+                "residual_norm": float(fnorm),
+                "line_search_reason": 0,
+            }
+        )
+
+    snes.setMonitor(_monitor)
+
+
+def _install_line_search_damping_schedule(
+    snes,
+    prefix: str,
+    damping_schedule: dict[str, Any] | None,
+) -> None:
+    """Install a per-Newton line-search damping schedule on SNES."""
+    if not damping_schedule or not damping_schedule.get("enabled", False):
+        return
+
+    from petsc4py import PETSc
+
+    lambda_start = float(damping_schedule["lambda_start"])
+    lambda_end = float(damping_schedule["lambda_end"])
+    decay_iters = max(1, int(damping_schedule["decay_iters"]))
+    opts = PETSc.Options()
+    line_search = snes.getLineSearch()
+    option_key = f"{prefix}snes_linesearch_damping"
+
+    def _lambda_for_iter(iteration: int) -> float:
+        alpha = min(max(int(iteration), 0), decay_iters) / decay_iters
+        return lambda_start + alpha * (lambda_end - lambda_start)
+
+    def _apply(iteration: int) -> None:
+        opts[option_key] = _lambda_for_iter(iteration)
+        line_search.setFromOptions()
+
+    _apply(0)
+
+    def _update(snes_, iteration):
+        _apply(int(iteration))
+
+    snes.setUpdate(_update)
+
+
 def _resolve_backend_options(
     cfg: dict[str, Any] | None,
     user_petsc_options: dict[str, Any] | None,
@@ -209,6 +260,8 @@ def _resolve_backend_options(
 def solve_nonlinear(F, u, bcs: list, prefix: str,
                     petsc_options: dict[str, Any] | None = None,
                     jacobian_shift: float = 0.0,
+                    damping_schedule: dict[str, Any] | None = None,
+                    snes_diagnostics: list[dict[str, Any]] | None = None,
                     cfg: dict[str, Any] | None = None):
     """
     Solve a nonlinear variational problem F(u; v) = 0.
@@ -250,11 +303,19 @@ def solve_nonlinear(F, u, bcs: list, prefix: str,
     )
     _apply_factor_options(problem.solver, factor_opts)
     _install_jacobian_shift(problem.solver, jacobian_shift)
+    _install_line_search_damping_schedule(problem.solver, prefix, damping_schedule)
+    _install_snes_monitor(problem.solver, snes_diagnostics)
     _t0 = time.monotonic()
     problem.solve()
     linear_solve_wall_s = time.monotonic() - _t0
     reason = problem.solver.getConvergedReason()
     n_iter = problem.solver.getIterationNumber()
+    try:
+        line_search = problem.solver.getLineSearch()
+        line_search_type = str(line_search.getType())
+    except Exception:
+        line_search_type = "unknown"
+    line_search_reason = int(reason) if int(reason) == -4 else 0
     try:
         ksp_iters = int(problem.solver.getKSP().getIterationNumber())
     except Exception:
@@ -266,6 +327,8 @@ def solve_nonlinear(F, u, bcs: list, prefix: str,
         "converged": bool(converged),
         "ksp_iters": ksp_iters,
         "linear_solve_wall_s": float(linear_solve_wall_s),
+        "line_search_reason": line_search_reason,
+        "line_search_type": line_search_type,
         "problem": problem,  # kept so caller can inspect further
     }
     out.update(backend_meta)
@@ -281,6 +344,8 @@ def solve_nonlinear_block(
     kind: str | None = None,
     entity_maps: list | None = None,
     jacobian_shift: float = 0.0,
+    damping_schedule: dict[str, Any] | None = None,
+    snes_diagnostics: list[dict[str, Any]] | None = None,
     cfg: dict[str, Any] | None = None,
     line_search: str | None = None,
 ):
@@ -346,11 +411,19 @@ def solve_nonlinear_block(
     _apply_factor_options(problem.solver, factor_opts)
     _install_jacobian_shift(problem.solver, jacobian_shift)
     apply_snes_line_search(problem.solver, line_search)
+    _install_line_search_damping_schedule(problem.solver, prefix, damping_schedule)
+    _install_snes_monitor(problem.solver, snes_diagnostics)
     _t0 = time.monotonic()
     problem.solve()
     linear_solve_wall_s = time.monotonic() - _t0
     reason = problem.solver.getConvergedReason()
     n_iter = problem.solver.getIterationNumber()
+    try:
+        line_search = problem.solver.getLineSearch()
+        line_search_type = str(line_search.getType())
+    except Exception:
+        line_search_type = "unknown"
+    line_search_reason = int(reason) if int(reason) == -4 else 0
     try:
         ksp_iters = int(problem.solver.getKSP().getIterationNumber())
     except Exception:
@@ -362,6 +435,8 @@ def solve_nonlinear_block(
         "converged": bool(converged),
         "ksp_iters": ksp_iters,
         "linear_solve_wall_s": float(linear_solve_wall_s),
+        "line_search_reason": line_search_reason,
+        "line_search_type": line_search_type,
         "problem": problem,
     }
     out.update(backend_meta)
