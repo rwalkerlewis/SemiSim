@@ -77,3 +77,5 @@ Template and background: <https://github.com/joelparkerhenderson/architecture-de
 - [0014 Slotboom transient](0014-slotboom-transient.md)
 - [0015 Schottky as Robin BC](0015-schottky-robin-bc.md)
 - [0016 Heterojunction-aware Slotboom and ohmic equilibrium](0016-heterojunction-slotboom.md)
+- [0017 Adaptive transient dt](0017-adaptive-transient-dt.md)
+- [0018 SNES line-search nleqerr](0018-snes-line-search-nleqerr.md)

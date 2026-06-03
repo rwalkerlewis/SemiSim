@@ -29,11 +29,19 @@ Full documentation is in [docs/](docs/index.md). Quick links:
 
 ## Status
 
-The current package version is v0.16.0. The engine ships equilibrium
-Poisson, coupled Slotboom drift-diffusion with SRH recombination, a
-2D MOSFET, transient and AC small-signal solvers, an axisymmetric
+The current package version is v0.27.0. The engine ships equilibrium
+Poisson, coupled Slotboom drift-diffusion with SRH / Auger
+recombination, field-dependent Caughey-Thomas and Lombardi surface
+mobility, Fermi-Dirac statistics, Schottky contacts, band-to-band
+and trap-assisted tunneling, time-varying transient contact voltage,
+adaptive transient timestepping, position-dependent heterojunction
+material parameters, a 2D MOSFET, a 3D MOSFET equilibrium smoke
+benchmark, transient and AC small-signal solvers, an axisymmetric
 2D MOSCAP path, an optional GPU linear-solver backend, and a strict
-JSON input schema (v2.0.0).
+JSON input schema (v2.11.0; v1 schemas accepted with
+DeprecationWarning for one minor cycle). The authoritative
+capability matrix lives in
+[`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 What the engine does today, in plain terms:
 
@@ -375,17 +383,14 @@ SemiSim covers the **quasi-static, steady-state** subset.
 **Out of scope today (see [docs/IMPROVEMENT_GUIDE.md](docs/IMPROVEMENT_GUIDE.md)
 and [docs/ROADMAP.md](docs/ROADMAP.md)):**
 
-- Caughey-Thomas / Lombardi field-dependent mobility (M16.1, M16.2)
-- Auger and radiative recombination (M16.3)
-- Fermi-Dirac statistics (M16.4; Boltzmann throughout today, valid
-  below ~10¹⁹ cm⁻³)
-- Schottky contacts and contact resistance models (M16.5)
-- Band-to-band or trap-assisted tunneling (M16.6)
-- Time-varying transient contact voltage (M16.7)
-- Heterojunctions and position-dependent band structure (M17)
-- 3D MOSFET / FinFET capstone benchmark (M19); MPI parallel
-  orchestration (M19.1); HTTP server hardening (M20)
-- GUI or web frontend (M18, separate repo)
+- 3D MOSFET with V_GS bias sweep, Pao-Sah analytical comparison,
+  and GPU vs CPU-MUMPS comparison (M19 proper; the M19 precursor
+  ships the 3D geometry, mesh quality gate, and equilibrium
+  smoke in v0.27.0). MPI parallel orchestration is M19.1; HTTP
+  server hardening is M20.
+- FinFET or any other 3D transistor topology beyond the planar
+  M19 MOSFET (unscheduled)
+- GUI or web frontend (separate repo)
 - Impact ionization and avalanche generation (unscheduled)
 - Thermal coupling / self-heating (unscheduled)
 - Optical generation (unscheduled)

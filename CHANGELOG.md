@@ -28,9 +28,141 @@ transient time-varying contact voltage `voltage_t`; shipped with
 `[0.23.0]` below), **2.8.0** (additive minor; M17 heterojunction
 / position-dependent material parameters via `regions[].material_overrides`
 and `regions[].heterojunction`; shipped with `[0.24.0]` below),
-and **2.9.0** (additive minor; M18 adaptive time-step controller
+**2.9.0** (additive minor; M18 adaptive time-step controller
 `solver.adaptive` for the transient runner; shipped with
-`[0.25.0]` below).
+`[0.25.0]` below), **2.10.0** (additive minor; M18.1
+`solver.snes.line_search` enum on the bias_sweep coupled DD
+block; shipped with `[0.26.0]` below), and **2.11.0**
+(additive minor; M19 precursor `mesh.quality_gate` boolean and
+`mesh.quality_thresholds` optional override on both mesh
+oneOf branches; shipped with `[0.27.0]` below).
+
+## [0.27.0] - 2026-05-30
+
+### Added
+
+- **M19 precursor: 3D MOSFET geometry, mesh quality gate,
+  equilibrium smoke.** Schema additive minor bump v2.10.0 ->
+  v2.11.0 adds `mesh.quality_gate` (boolean, default false) and
+  `mesh.quality_thresholds` (optional override) on both the
+  file and builtin mesh oneOf branches. When `quality_gate` is
+  true, `semi/mesh.py::build_mesh` runs
+  `semi/mesh_quality.check_mesh_quality` after ingest and
+  raises `MeshQualityError` on any per-region edge-length,
+  mesh-wide tetrahedral skewness, aspect-ratio, cell-count, or
+  global-min-edge violation. The default false branch preserves
+  byte-identity on every existing benchmark (pn_1d_bias anchor
+  J(V=0.6 V) = 1.635e+03 A/m^2; diode_velsat_1d, diode_auger_1d,
+  diode_fermi_dirac_1d, schottky_1d, zener_1d, pn_1d_turnon,
+  pn_1d_pulse, diode_sine_1d, rc_ac_sweep, resistor_3d anchors
+  all hold).
+- **New module `semi/mesh_quality.py`** exposes
+  `check_mesh_quality(mesh, cell_tags, *, thresholds=None) ->
+  MeshQualityReport`. Pure-Python at import time (per ADR
+  0007); numpy and dolfinx are lazy-imported inside the helper
+  bodies. `DEFAULT_THRESHOLDS` are calibrated to the as-shipped
+  `mosfet_3d_eq` mesh.
+- **New benchmark `benchmarks/mosfet_3d_eq/`** ships a 3D
+  planar n-MOSFET on a gmsh-sourced unstructured mesh (210883
+  tets, 47386 vertices) at equilibrium (V_GS = V_DS = V_BS = 0
+  V). Hand-authored OCC `.geo` at `fixtures/mosfet_3d.geo`
+  (gmsh 4.x); generated `.msh` at `fixtures/mosfet_3d.msh`.
+  Solve time ~5 s single-threaded on the dev image; the
+  equilibrium SNES converges in 1 Newton iteration to function
+  norm 3.35e-22.
+- **New verifier `semi/verification/mosfet_3d_eq.py`** with
+  five geometric / shape-based gates: (1) n_max in S/D
+  implants within factor 3 of N_D peak, (2) n_min in channel
+  below 1e12 cm^-3, (3) p_max in body bulk within 10 % of N_A,
+  (4) charge neutrality |n - p - N_D + N_A| below 1e15 cm^-3
+  in body bulk, (5) max psi inside S/D implants at least
+  3 * V_t above psi_body. All five pass on the shipped mesh.
+- **New CI matrix entry `mosfet_3d_eq`** in
+  `.github/workflows/ci.yml::docker-fem-benchmarks`. No
+  `allow-failure`.
+- **ADR 0019** documents the source / drain region strategy
+  (doping-only differentiation; the 2D MOSFET precedent), the
+  mesh-quality thresholds, and the V&V scope departure
+  (no MMS variant; audit-only V&V via the equilibrium
+  verifier; same precedent as ADR 0015, ADR 0017, ADR 0018).
+- **Package version bump 0.26.0 -> 0.27.0.**
+
+## [0.26.0] - 2026-05-14
+
+### Added
+
+- **M18.1 bias-sweep SNES line-search stabilization.** Schema
+  additive minor bump v2.9.0 -> v2.10.0
+  (`solver.snes.line_search` enum on the existing `solver.snes`
+  sub-object; accepts `"bt"`, `"nleqerr"`, `"cp"`, `"l2"`,
+  `"basic"`; default `"bt"`). Retires the `nmos_idvgs`
+  `allow-failure: "true"` CI carve-out introduced in `ed6719b`.
+  The default `"bt"` reproduces the M12-era PETSc backtracking
+  line search exactly, so every existing benchmark is
+  bit-identical to v0.25.0 on the anchor set (pn_1d_bias
+  J(V=0.6 V) = 1.635e+03 A/m^2; diode_velsat_1d 56.27 % at 0.9 V
+  / 0.19 % at 0.3 V; diode_auger_1d 27.86 % SRH-vs-Auger
+  divergence; diode_fermi_dirac_1d 7.37 % FD-vs-Boltzmann V_bi;
+  schottky_1d 2.46 % slope match / 278 % envelope; zener_1d
+  -0.279 per V slope / 99.88 % envelope; pn_1d_pulse,
+  diode_sine_1d, rc_ac_sweep, resistor_3d all bit-identical).
+- **`semi.solver.apply_snes_line_search(snes, ls_type)` helper.**
+  Sets the line-search type directly on the SNES via
+  `SNESLineSearch.setType()` after the dolfinx 0.10
+  `NonlinearProblem` is constructed. The dolfinx 0.10
+  `NonlinearProblem` configures its SNES with `setFromOptions`
+  before the line-search context exists, so `snes_linesearch_*`
+  options pushed through `petsc_options` are silently dropped;
+  the helper exists specifically to set the line-search type on
+  the existing SNES object. No-op on `None` / `""` so callers
+  pass the resolved cfg field unconditionally.
+- **`solve_nonlinear_block` line_search kwarg.** Optional
+  forwarder from the bias_sweep runner; threads
+  `cfg["solver"]["snes"]["line_search"]` to the helper above.
+- **ADR 0018** (`docs/adr/0018-snes-line-search-nleqerr.md`).
+  Status Accepted. Documents the diagnostic evidence (bt stalls
+  at V_GS = 0.3 V with reason -6 SNES_DIVERGED_LINE_SEARCH;
+  nleqerr extends the converged sweep through V_GS = 0.3 V then
+  hits reason -4 SNES_DIVERGED_FNORM_NAN at V_GS = 0.4 V where
+  the Newton update overshoots into the FD prefactor overflow
+  regime), the chosen fix (nleqerr line search + lighter body
+  doping for the example), and the rejected alternatives
+  (damping schedule <1.0 breaks the seed solve; FD-prefactor
+  homotopy is out of scope for M18.1; compiled-in nleqerr
+  default would violate the spirit of byte-identity).
+- **Pure-Python schema and helper coverage.**
+  `tests/test_snes_line_search_schema.py` (31 cases; every
+  shipped benchmark / example JSON validates on v2.10.0; every
+  enum value accepted; unknown values rejected; v2.9.0
+  forward-compat default-fill verified);
+  `tests/test_apply_snes_line_search.py` (7 cases; every enum
+  value round-trips through `SNESLineSearch.getType`; None and
+  "" are no-ops). Coverage gate at 95 holds without a follow-up
+  commit.
+
+### Changed
+
+- `examples/nmos_idvgs/nmos.json` re-parameterised per ADR 0018:
+  body acceptor doping N_A = 5e17 -> 1e16 cm^-3 (lower V_T into
+  the numerically friendly regime), V_GS sweep stop 1.8 V ->
+  0.5 V (subthreshold through onset of weak inversion at the
+  lighter body), and `solver.snes.line_search: "nleqerr"`. Schema
+  version 2.7.0 -> 2.10.0. The heavier-body / wider-sweep regime
+  is deferred behind "Bias-sweep SNES robustness, phase 2"
+  (ADR 0018 Deferred section).
+- `examples/nmos_idvgs/README.md` rewrites the operating regime,
+  expected output (positive transconductance in [0.3, 0.5] V),
+  and CI-runtime notes (~35 seconds; 27 SNES iterations total).
+- `scripts/run_benchmark.py` `verify_nmos_idvgs` simplified to
+  match the new operating regime: anchor run only (no V_DS=1.8 V
+  companion that the old re-param cannot converge), gating
+  J_drain finite + |J_drain| monotone in V_GS + dJ/dV_GS > 0 in
+  the inversion-onset window.
+- `.github/workflows/ci.yml` removes the `nmos_idvgs`
+  `allow-failure: "true"` flag and updates the carve-out comment
+  block; the `mosfet_2d` flag stays in place (separate,
+  independently-tracked SNES depletion-onset issue).
+- Package version: `0.25.0` -> `0.26.0`.
 
 ## [0.25.0] - 2026-05-09
 

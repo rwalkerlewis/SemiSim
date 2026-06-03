@@ -169,16 +169,42 @@ ENGINE_SUPPORTED_SCHEMA_MAJOR = max(ENGINE_SUPPORTED_SCHEMA_MAJORS)
 #                validate time so users see the failure before the FEM
 #                path. v2.0.0 through v2.8.0 inputs continue to
 #                validate.
-#   M18.1 (2.10.0): added solver.diagnostics (bool, default false),
-#                   solver.line_search (bt | nleqerr | cp | basic |
-#                   l2, default bt), and solver.damping_schedule
-#                   (enabled, lambda_start, lambda_end, decay_iters;
-#                   default enabled false) for the bias_sweep runner.
-#                   When diagnostics is true, the runner records SNES
-#                   per-iteration norms and line-search reasons to a
-#                   run artifact. Non-bias_sweep solver types reject
-#                   these fields at validate time.
-SCHEMA_SUPPORTED_MINOR = 10
+#   M18.1 (2.10.0): added solver.snes.line_search (optional enum) for
+#                the coupled drift-diffusion bias_sweep block. Accepted
+#                values: "bt" (default; backtracking, M12 default),
+#                "nleqerr" (Deuflhard 2004 natural monotonicity test;
+#                recommended for MOSFET-like configurations under
+#                ADR 0018), "cp", "l2", "basic". The bias_sweep runner
+#                threads the value through SNESLineSearch.setType()
+#                after the dolfinx NonlinearProblem is constructed. The
+#                default "bt" is bit-identical to v0.25.0 on every
+#                existing benchmark (SNES atol of 1e-7 dominates the
+#                Newton trajectory choice at converged solutions).
+#                Same 2.10.0 minor also added solver.diagnostics (bool,
+#                default false), solver.line_search (bt | nleqerr | cp |
+#                basic | l2, default bt), and solver.damping_schedule
+#                (enabled, lambda_start, lambda_end, decay_iters;
+#                default enabled false) for the bias_sweep runner. When
+#                diagnostics is true, the runner records SNES
+#                per-iteration norms and line-search reasons to a run
+#                artifact. Non-bias_sweep solver types reject these
+#                fields at validate time.
+#                v2.0.0 through v2.9.0 inputs continue to validate.
+#   M19 precursor (2.11.0): added mesh.quality_gate (boolean, default
+#                false) and mesh.quality_thresholds (optional sub-
+#                object) on both the file and builtin mesh oneOf
+#                branches. When quality_gate is true, build_mesh runs
+#                semi/mesh_quality.check_mesh_quality after ingest and
+#                raises MeshQualityError on any threshold violation
+#                (per-region edge length, mesh-wide skewness / aspect
+#                ratio, cell count band; ADR 0019). The
+#                quality_thresholds sub-object overlays any subset of
+#                the defaults in semi/mesh_quality.DEFAULT_THRESHOLDS.
+#                Default-false preserves byte-identity on every
+#                existing benchmark; v2.0.0 through v2.10.0 inputs
+#                continue to validate. The mosfet_3d_eq benchmark
+#                ships with quality_gate: true.
+SCHEMA_SUPPORTED_MINOR = 11
 
 
 @lru_cache(maxsize=8)
@@ -687,6 +713,14 @@ def _fill_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
     """Fill in sensible defaults for optional sections."""
     cfg.setdefault("coordinate_system", "cartesian")
     _validate_coordinate_system(cfg)
+    # M19 precursor (schema 2.11.0; ADR 0019): mesh.quality_gate
+    # defaults to false on every mesh source so existing benchmarks
+    # are byte-identical. quality_thresholds is optional; absent
+    # means the semi/mesh_quality.DEFAULT_THRESHOLDS apply when the
+    # gate is enabled.
+    mesh_cfg = cfg.get("mesh")
+    if isinstance(mesh_cfg, dict):
+        mesh_cfg.setdefault("quality_gate", False)
     phys = cfg.setdefault("physics", {})
     phys.setdefault("temperature", 300.0)
     rec = phys.setdefault("recombination", {})

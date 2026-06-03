@@ -1138,6 +1138,91 @@ The engine is ready for a UI when all of these are green:
 
 ### [Unreleased]
 
+### [0.27.0]
+
+- **2026-05-30**, M19 precursor (3D MOSFET geometry, mesh
+  quality gate, equilibrium smoke) shipped (v0.27.0). Schema
+  additive minor bump v2.10.0 -> v2.11.0 (`mesh.quality_gate`
+  boolean default false plus `mesh.quality_thresholds` optional
+  override on both `oneOf` branches of `mesh`). ADR 0019
+  documents the source / drain region strategy (doping-only
+  differentiation; the 2D MOSFET precedent), the mesh-quality
+  thresholds calibrated to the as-shipped mesh (gmsh emits cells
+  up to ~2x the nominal MeshSize, so per-region edge_max sits at
+  ~2.3x the .geo's nominal h_bulk / h_ox), and the V&V scope
+  departure (no MMS variant; audit-only V&V via the equilibrium
+  verifier; same precedent as ADR 0015, ADR 0017, ADR 0018). New
+  module `semi/mesh_quality.py` exposes
+  `check_mesh_quality(mesh, cell_tags, *, thresholds=None) ->
+  MeshQualityReport`. `semi/mesh.py::build_mesh` runs the gate
+  after both the builtin and file ingest paths when
+  `mesh.quality_gate: true` and raises `MeshQualityError` on the
+  first violation. New benchmark `benchmarks/mosfet_3d_eq/`
+  ships a 3D planar n-MOSFET on a gmsh-sourced unstructured mesh
+  at equilibrium (V_GS = V_DS = V_BS = 0 V); hand-authored OCC
+  `.geo` at `fixtures/mosfet_3d.geo`, generated `.msh` at
+  `fixtures/mosfet_3d.msh`. Generated mesh: 210883 tets, 47386
+  vertices; equilibrium SNES converges in 1 Newton iteration to
+  function norm 3.35e-22 in ~5 s single-threaded on the dev
+  image. New verifier `semi/verification/mosfet_3d_eq.py`
+  exposes the five gates (n_max in S/D within factor 3 of N_D
+  peak, n_min in channel < 1e12 cm^-3, p_max in body within
+  10 % of N_A, charge neutrality < 1e15 cm^-3 in body bulk,
+  built-in junction psi delta >= 3 * V_t). New CI matrix entry
+  `mosfet_3d_eq` without `allow-failure`. Two scoped deviations
+  from the prompt are recorded in ADR 0019: L_y shipped at
+  0.5 um (prompt nominal 1 um) and the mesh size targets
+  h_ox = 3 nm, h_chan = 15 nm, h_bulk = 150 nm (prompt
+  1 / 10 / 100 nm); both root-cause to isotropic tet meshing of
+  the 5 nm oxide. Configs without `mesh.quality_gate` are bit-
+  identical to v0.26.0 on every existing benchmark (pn_1d_bias
+  anchor: J(V = 0.6 V) = 1.635e+03 A/m^2; the diode_velsat_1d,
+  diode_auger_1d, diode_fermi_dirac_1d, schottky_1d, zener_1d,
+  pn_1d_turnon, pn_1d_pulse, diode_sine_1d, rc_ac_sweep, and
+  resistor_3d anchors all continue to hold).
+
+### [0.26.0]
+
+- **2026-05-14**, M18.1 bias-sweep SNES line-search stabilization
+  shipped (v0.26.0): § 4 M18.1 marked Done with `[0.26.0]`
+  CHANGELOG anchor. Schema additive minor bump v2.9.0 -> v2.10.0
+  (`solver.snes.line_search` enum on the existing `solver.snes`
+  sub-object; accepts `"bt"`, `"nleqerr"`, `"cp"`, `"l2"`,
+  `"basic"`; default `"bt"`). Closes the bias_sweep half of the
+  CI carve-out introduced in `ed6719b`. ADR 0018 documents the
+  diagnostic evidence (bt stalls at V_GS = 0.3 V with reason -6
+  SNES_DIVERGED_LINE_SEARCH; nleqerr extends the converged sweep
+  through V_GS = 0.3 V then hits reason -4 SNES_DIVERGED_FNORM_NAN
+  at V_GS = 0.4 V; the chosen fix is nleqerr line search plus a
+  lighter-body re-parameterisation of the example), the chosen
+  fix, and the rejected alternatives (damping <1.0 breaks the seed
+  solve; FD-prefactor homotopy is out of scope; compiled-in
+  nleqerr default would violate the spirit of byte-identity).
+  Cross-references ADR 0008 (M12 SNES tolerance amendment, same
+  solver path). New helper
+  `semi.solver.apply_snes_line_search(snes, ls_type)` calls
+  `SNESLineSearch.setType()` directly on the SNES object because
+  dolfinx 0.10's `NonlinearProblem` runs `setFromOptions` before
+  the line-search context exists. The `nmos_idvgs` example is
+  re-parameterised (N_A = 1e16 cm^-3 body, V_GS sweep stop 0.5 V,
+  `solver.snes.line_search: "nleqerr"`) and retires its
+  `allow-failure: "true"` CI carve-out; rewritten smoke verifier
+  gates J_drain finite + monotone non-decreasing + positive
+  transconductance in [0.3, 0.5] V. `mosfet_2d` `allow-failure`
+  stays in place (separate follow-up). Configs without the new
+  field (or with `line_search: "bt"`) are bit-identical to v0.25.0
+  on every existing benchmark (pn_1d_bias anchor: J(V=0.6 V) =
+  1.635e+03 A/m^2; the diode_velsat_1d, diode_auger_1d,
+  diode_fermi_dirac_1d, schottky_1d, zener_1d, pn_1d_turnon,
+  pn_1d_pulse, diode_sine_1d, rc_ac_sweep, and resistor_3d
+  anchors all continue to hold).
+- **2026-05-14**, author M18.1 starter prompt
+  ([M18_1_STARTER_PROMPT.md](M18_1_STARTER_PROMPT.md)) on branch
+  `dev/m18.1-bias-sweep-snes-stabilization`; phases 0 through F
+  ship the SNES line-search stabilization for the bias_sweep
+  runner and retire the `nmos_idvgs` CI `allow-failure: "true"`
+  carve-out.
+
 ### [0.25.0]
 
 - **2026-05-09**, M18 adaptive timestep for the transient runner
